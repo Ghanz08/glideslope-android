@@ -72,6 +72,7 @@ val FINANCE_APPS = listOf(
     "com.shopee.id" to "Shopee (ShopeePay)",
     "com.shopeepay.id" to "ShopeePay",
     "id.bni.wondr" to "wondr by BNI",
+    "src.com.bni" to "BNI Mobile (lama)",
     "id.bmri.livin" to "Livin' by Mandiri",
     "com.jago.digitalBanking" to "Jago",
     "id.co.bankbkemobile.digitalbank" to "SeaBank",
