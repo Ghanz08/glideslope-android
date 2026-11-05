@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- sideloaded, not on Play: the direct exemption dialog is fine here (F-12.5) -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- to show which of the allowed finance apps are installed -->
+    <queries>
+        <package android:name="com.gojek.app" />
+        <package android:name="com.gojek.gopay" />
+        <package android:name="ovo.id" />
+        <package android:name="id.dana" />
+        <package android:name="com.shopee.id" />
+        <package android:name="com.shopeepay.id" />
+        <package android:name="id.bni.wondr" />
+        <package android:name="id.bmri.livin" />
+        <package android:name="com.jago.digitalBanking" />
+        <package android:name="id.co.bankbkemobile.digitalbank" />
+        <package android:name="com.bca" />
+        <package android:name="com.bca.mybca.omni.android" />
+        <package android:name="id.co.bri.brimo" />
+        <package android:name="com.bcadigital.blu" />
+        <package android:name="id.flip" />
+        <package android:name="com.btpn.dc" />
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Glideslope">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".Listener"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>

@@ -1,0 +1,5 @@
+<resources>
+    <style name="Theme.Glideslope" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#F4F6F9</item>
+    </style>
+</resources>
