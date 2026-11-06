@@ -68,9 +68,15 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
     var tab by rememberSaveable { mutableStateOf(Tab.BERANDA) }
     var settings by rememberSaveable { mutableStateOf(false) }
     var adding by rememberSaveable { mutableStateOf(false) }
+    var entry by rememberSaveable { mutableStateOf<String?>(null) } // pengeluaran | pemasukan | transfer
     val reviewCount by remember { Db.get(activity).sync().needsReviewCount() }.collectAsState(initial = 0)
     LaunchedEffect(Unit) { PullWorker.now(activity); PullWorker.schedule(activity) }
     BackHandler(enabled = settings) { settings = false }
+    entry?.let { kind ->
+        BackHandler { entry = null }
+        AddTxScreen(kind, onDone = { entry = null })
+        return
+    }
     ProvidePrivacy {
         Scaffold(
             containerColor = Token.latar,
@@ -80,9 +86,10 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
                 settings -> SettingsHub(pad, onBack = { settings = false }, onSignedOut = onSignedOut)
                 tab == Tab.BERANDA -> HomeScreen(pad, onOpenInbox = { tab = Tab.INBOX }, onOpenAset = { tab = Tab.ASET }, onOpenProfile = { settings = true })
                 tab == Tab.TRANSAKSI -> TransactionsScreen(pad)
+                tab == Tab.INBOX -> InboxScreen(pad)
                 else -> ComingNext(pad, tab.label)
             }
         }
-        if (adding) AddSheet(onDismiss = { adding = false })
+        if (adding) AddSheet(onDismiss = { adding = false }, onPick = { if (it in setOf("pengeluaran", "pemasukan", "transfer")) entry = it })
     }
 }

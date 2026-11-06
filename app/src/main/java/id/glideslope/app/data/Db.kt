@@ -35,6 +35,8 @@ data class TxEntity(
     val note: String?,
     val isOneOff: Boolean,
     val deletedAt: String?,
+    val updatedAt: String? = null,
+    val pending: Boolean = false, // written on the phone, not yet accepted by the server
 )
 
 @Entity(tableName = "accounts")
@@ -42,6 +44,19 @@ data class AccountEntity(@PrimaryKey val id: String, val name: String, val kind:
 
 @Entity(tableName = "categories")
 data class CategoryEntity(@PrimaryKey val id: String, val name: String, val kind: String)
+
+/** F-14.2 outbox: one row per change made on the phone, sent in order. `localIds` are optimistic rows to drop once applied. */
+@Entity(tableName = "outbox", indices = [androidx.room.Index(value = ["opId"], unique = true)])
+data class OutboxEntity(
+    @PrimaryKey(autoGenerate = true) val seq: Long = 0,
+    val opId: String,
+    val type: String,
+    val payload: String,
+    val status: String = "menunggu", // menunggu | ditolak | konflik
+    val error: String? = null,
+    val localIds: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+)
 
 @Entity(tableName = "meta")
 data class MetaEntity(@PrimaryKey val key: String, val value: String)
@@ -57,6 +72,7 @@ data class TxListItem(
     val note: String?,
     val accountName: String?,
     val categoryName: String?,
+    val pending: Boolean,
 )
 
 @Dao
@@ -80,7 +96,7 @@ interface SyncDao {
 
     @Query(
         """select t.id, t.amount, t.direction, t.kind, t.status, t.occurredAt, t.merchantRaw, t.note,
-                  a.name as accountName, c.name as categoryName
+                  a.name as accountName, c.name as categoryName, t.pending
            from transactions t left join accounts a on a.id = t.accountId left join categories c on c.id = t.categoryId
            where t.deletedAt is null and t.status != 'ignored'
            order by t.occurredAt desc limit :limit""",
@@ -92,9 +108,40 @@ interface SyncDao {
 
     @Query("select * from accounts where not isSystem and archivedAt is null order by name")
     fun activeAccounts(): Flow<List<AccountEntity>>
+
+    @Query("select * from categories where kind = :kind order by name")
+    fun categories(kind: String): Flow<List<CategoryEntity>>
+
+    @Query("select json from sync_rows where tbl = :tbl")
+    fun rows(tbl: String): Flow<List<String>>
+
+    @Query("select json from sync_rows where tbl = :tbl and `key` = :key")
+    suspend fun row(tbl: String, key: String): String?
+
+    @Query("select * from transactions where id = :id")
+    suspend fun txById(id: String): TxEntity?
+
+    @Query("select * from transactions where id = :id")
+    fun txFlow(id: String): Flow<TxEntity?>
+
+    @Query("select * from transactions where status = 'needs_review' and deletedAt is null order by occurredAt desc")
+    fun reviewQueue(): Flow<List<TxEntity>>
+
+    @Query("select * from accounts")
+    fun allAccounts(): Flow<List<AccountEntity>>
+
+    @Query("select * from categories")
+    fun allCategories(): Flow<List<CategoryEntity>>
+
+    @Insert suspend fun outbox(o: OutboxEntity)
+    @Query("select * from outbox where status = 'menunggu' order by seq limit 50") suspend fun outboxPending(): List<OutboxEntity>
+    @Query("select * from outbox where status != 'menunggu' order by seq") fun outboxProblems(): Flow<List<OutboxEntity>>
+    @Query("select count(*) from outbox where status = 'menunggu'") fun outboxCount(): Flow<Int>
+    @Query("delete from outbox where opId = :opId") suspend fun outboxDone(opId: String)
+    @Query("update outbox set status = :status, error = :error where opId = :opId") suspend fun outboxMark(opId: String, status: String, error: String?)
 }
 
-@Database(entities = [SyncRow::class, TxEntity::class, AccountEntity::class, CategoryEntity::class, MetaEntity::class], version = 1)
+@Database(entities = [SyncRow::class, TxEntity::class, AccountEntity::class, CategoryEntity::class, MetaEntity::class, OutboxEntity::class], version = 2)
 abstract class Db : RoomDatabase() {
     abstract fun sync(): SyncDao
 
@@ -109,6 +156,8 @@ abstract class Db : RoomDatabase() {
             System.loadLibrary("sqlcipher")
             return Room.databaseBuilder(ctx, Db::class.java, "glideslope.db")
                 .openHelperFactory(SupportOpenHelperFactory(passphrase(ctx)))
+                // v1 held only pulled data (no outbox yet): rebuilding it is a fresh pull, nothing of the owner's is lost
+                .fallbackToDestructiveMigrationFrom(true, 1)
                 .build()
         }
 

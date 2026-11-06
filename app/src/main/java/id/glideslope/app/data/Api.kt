@@ -92,6 +92,12 @@ class Api(private val settings: Settings, private val sessions: SessionStore) {
     suspend fun pull(xid: String, seq: Long) =
         authed { Request.Builder().url(url("/api/v1/sync/pull?xid=$xid&seq=$seq&limit=500")).header("authorization", "Bearer $it").build() }
 
+    /** F-14.2: one batch of the outbox; each op's payload is already JSON. */
+    suspend fun push(ops: List<OutboxEntity>): ApiResult<JsonObject> {
+        val body = "{\"ops\":[" + ops.joinToString(",") { "{\"op_id\":\"${it.opId}\",\"type\":\"${it.type}\",\"payload\":${it.payload}}" } + "]}"
+        return authed { post("/api/v1/sync/push", body, it) }
+    }
+
     suspend fun summary() = authed { Request.Builder().url(url("/api/v1/summary")).header("authorization", "Bearer $it").build() }
 
     suspend fun reportError(where: String, message: String) =

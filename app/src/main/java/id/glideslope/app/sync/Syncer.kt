@@ -101,6 +101,7 @@ class Syncer(private val db: Db, private val api: Api) {
                     note = row.str("note"),
                     isOneOff = row.bool("is_one_off"),
                     deletedAt = row.str("deleted_at"),
+                    updatedAt = row.str("updated_at"),
                 ),
             )
             "accounts" -> dao.account(AccountEntity(key, row.str("name")!!, row.str("kind")!!, row.bool("is_system"), row.str("archived_at")))
