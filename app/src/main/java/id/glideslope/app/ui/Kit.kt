@@ -3,6 +3,11 @@
 package id.glideslope.app.ui
 
 import android.content.Context
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -78,6 +83,38 @@ fun ProvidePrivacy(content: @Composable () -> Unit) {
 /** "Rp 1.234" or "Rp •••" in privacy mode. */
 @Composable
 fun rupiah(amount: Long): String = if (LocalPrivacy.current.hidden) "Rp •••" else formatRupiah(amount)
+
+// ---------------------------------------------------------------- loading placeholders
+
+/** A soft pulsing block that stands where data will appear (never a blank screen). */
+@Composable
+fun Skeleton(modifier: Modifier) {
+    val t = rememberInfiniteTransition(label = "skeleton")
+    val a by t.animateFloat(0.45f, 0.9f, infiniteRepeatable(tween<Float>(900), RepeatMode.Reverse), label = "alpha")
+    Box(modifier.clip(RoundedCornerShape(10.dp)).background(Token.isian.copy(alpha = a)))
+}
+
+@Composable
+fun SkeletonCard(lines: Int = 3) {
+    GsCard(Modifier.fillMaxWidth().semantics { contentDescription = "Memuat data" }) {
+        Skeleton(Modifier.width(120.dp).height(16.dp))
+        Spacer(Modifier.height(12.dp))
+        Skeleton(Modifier.width(220.dp).height(40.dp))
+        repeat(lines) {
+            Spacer(Modifier.height(14.dp))
+            Skeleton(Modifier.fillMaxWidth().height(18.dp))
+        }
+    }
+}
+
+/** The cached server summary, parsed off the main thread. */
+@Composable
+fun rememberSummary(json: String?): kotlinx.serialization.json.JsonObject? {
+    val state = androidx.compose.runtime.produceState<kotlinx.serialization.json.JsonObject?>(null, json) {
+        value = json?.let { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { runCatching { kotlinx.serialization.json.Json.parseToJsonElement(it) as kotlinx.serialization.json.JsonObject }.getOrNull() } }
+    }
+    return state.value
+}
 
 // ---------------------------------------------------------------- surfaces
 

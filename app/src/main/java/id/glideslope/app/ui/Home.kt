@@ -102,7 +102,7 @@ fun HomeScreen(pad: PaddingValues, onOpenInbox: () -> Unit, onOpenAset: () -> Un
     val syncError by dao.metaFlow("sync_error").collectAsState(initial = null)
     val accounts by dao.activeAccounts().collectAsState(initial = emptyList())
     val reviewCount by dao.needsReviewCount().collectAsState(initial = 0)
-    val s = remember(summaryJson) { summaryJson?.let { runCatching { Json.parseToJsonElement(it).jsonObject }.getOrNull() } }
+    val s = rememberSummary(summaryJson)
     val today = LocalDate.now(WIB)
     val closed = remember { mutableStateListOf<String>() }
 
@@ -122,7 +122,8 @@ fun HomeScreen(pad: PaddingValues, onOpenInbox: () -> Unit, onOpenAset: () -> Un
             InfoBanner(b.text("text") ?: "", warning = b.text("tone") == "perhatian", onClose = { closed += b.text("key") ?: "" })
         }
         if (s == null) {
-            GsCard { Text(if (syncedAt == null) "Menyiapkan data…" else "Belum ada data.", color = Token.teksRedup) }
+            SkeletonCard(4)
+            SkeletonCard(2)
         } else {
             Hero(s, today)
             SectionHeader("Akun", "Lihat aset", onOpenAset)

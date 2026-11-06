@@ -95,7 +95,10 @@ fun InboxScreen(pad: PaddingValues) {
     val queue by dao.reviewQueue().collectAsState(initial = emptyList())
     val accounts by dao.allAccounts().collectAsState(initial = emptyList())
     val categories by dao.allCategories().collectAsState(initial = emptyList())
-    val rows by dao.rows("transactions").collectAsState(initial = emptyList())
+    val queueIds = queue.map { it.id }
+    val rows by remember(queueIds) { dao.rowsByKey("transactions", queueIds) }.collectAsState(initial = emptyList())
+    val problems by dao.outboxProblems().collectAsState(initial = emptyList())
+    val waiting by dao.outboxCount().collectAsState(initial = 0)
     var skipped by remember { mutableStateOf(setOf<String>()) }
     var editing by remember { mutableStateOf<TxEntity?>(null) }
     var total by remember { mutableIntStateOf(0) }
@@ -124,6 +127,16 @@ fun InboxScreen(pad: PaddingValues) {
             Text("Inbox", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
             if (total > 0 && current != null) Text("${done + 1} dari $total", style = MaterialTheme.typography.bodyLarge, color = Token.teksRedup)
         }
+        // F-14.2: refusals and conflicts are never dropped silently
+        problems.forEach { p ->
+            Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                InfoBanner(
+                    (if (p.status == "konflik") "Konflik: " else "Ditolak server: ") + (p.error ?: "Perubahan belum bisa diterapkan."),
+                    warning = true, action = "Buang perubahan ini", onAction = { scope.launch { dao.outboxDone(p.opId); id.glideslope.app.sync.PullWorker.now(ctx) } },
+                )
+            }
+        }
+        if (waiting > 0) Text("$waiting perubahan menunggu dikirim", style = MaterialTheme.typography.bodySmall, color = Token.teksPelan, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         if (total > 1) Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             repeat(total.coerceAtMost(12)) { i ->
                 Box(Modifier.weight(1f).height(4.dp).clip(CircleShape).background(if (i < done) Token.aksenSedang else if (i == done) Token.aksen else Token.garis))
@@ -214,8 +227,10 @@ private fun SwipeCard(key: String, onConfirm: () -> Unit, onSkip: () -> Unit, co
                     when {
                         v > threshold -> { offset.animateTo(1200f); onConfirm() }
                         v < -threshold -> { offset.animateTo(-1200f); onSkip() }
-                        else -> offset.animateTo(0f)
                     }
+                    // the card comes back unless the item left the queue (a new key gives a fresh card);
+                    // e.g. a confirm that first needs a category opens the sheet with the card in place
+                    offset.animateTo(0f)
                 },
             )
             .semantics {

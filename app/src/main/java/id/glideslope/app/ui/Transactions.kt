@@ -77,7 +77,7 @@ fun TransactionsScreen(pad: PaddingValues, onOpen: (String) -> Unit) {
     val items by remember { Db.get(ctx).sync().recent(1000) }.collectAsState(initial = emptyList())
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(0) }
-    val shown = items.filter { t ->
+    val shown = remember(items, query, filter) { items.filter { t ->
         when (filter) {
             1 -> t.kind == "expense" || t.kind == "fee"
             2 -> t.direction == "in" && t.kind != "transfer"
@@ -85,8 +85,8 @@ fun TransactionsScreen(pad: PaddingValues, onOpen: (String) -> Unit) {
             4 -> t.status == "needs_review"
             else -> true
         } && (query.isBlank() || listOfNotNull(t.merchantRaw, t.note, t.categoryName, t.accountName).any { it.contains(query.trim(), ignoreCase = true) })
-    }
-    val days = shown.groupBy { wib(it.occurredAt)?.toLocalDate() ?: LocalDate.MIN }
+    } }
+    val days = remember(shown) { shown.groupBy { wib(it.occurredAt)?.toLocalDate() ?: LocalDate.MIN } }
     LazyColumn(Modifier.fillMaxSize().padding(pad).statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Box(Modifier.padding(16.dp)) { PageTitle("Transaksi") } }
         item {
@@ -158,8 +158,8 @@ fun TxDetailScreen(id: String, onBack: () -> Unit) {
     val accounts by dao.allAccounts().collectAsState(initial = emptyList())
     val categories by dao.allCategories().collectAsState(initial = emptyList())
     val labelRows by dao.rows("labels").collectAsState(initial = emptyList())
-    val linkRows by dao.rows("transaction_labels").collectAsState(initial = emptyList())
-    val evidenceRows by dao.rows("transaction_evidence").collectAsState(initial = emptyList())
+    val linkRows by remember(id) { dao.rowsMentioning("transaction_labels", id) }.collectAsState(initial = emptyList())
+    val evidenceRows by remember(id) { dao.rowsMentioning("transaction_evidence", id) }.collectAsState(initial = emptyList())
     var editing by remember { mutableStateOf(false) }
     val t = tx ?: run { Column(Modifier.fillMaxSize()) { BackBar("Transaksi", onBack) }; return }
     val json = { s: String -> runCatching { Json.parseToJsonElement(s).jsonObject }.getOrNull() }

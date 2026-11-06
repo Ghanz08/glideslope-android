@@ -63,7 +63,7 @@ fun AssetsScreen(pad: PaddingValues) {
     val ctx = LocalContext.current
     val dao = remember { Db.get(ctx).sync() }
     val summaryJson by dao.metaFlow("summary").collectAsState(initial = null)
-    val s = remember(summaryJson) { summaryJson?.let { runCatching { Json.parseToJsonElement(it).jsonObject }.getOrNull() } }
+    val s = rememberSummary(summaryJson)
     val hidden = LocalPrivacy.current.hidden
     val accounts = s?.arr("accounts")?.map { it.jsonObject }?.filter { it.text("is_system") != "true" && it.text("archived") != "true" }.orEmpty()
     val assets = s?.arr("assets")?.map { it.jsonObject }.orEmpty()
@@ -77,7 +77,12 @@ fun AssetsScreen(pad: PaddingValues) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         PageTitle("Aset")
-        if (s == null) { GsCard { Text("Menyiapkan data…", color = Token.teksRedup) }; return@Column }
+        if (s == null) { SkeletonCard(3); SkeletonCard(5); return@Column }
+        if (s["accounts"] == null) {
+            InfoBanner("Server Glideslope belum mengirim data aset. Perbarui server (deploy terbaru), lalu tarik ulang.", warning = true, action = "Tarik ulang", onAction = { id.glideslope.app.sync.PullWorker.now(ctx) })
+            SkeletonCard(3)
+            return@Column
+        }
         GsCard {
             Text("Total dana", style = MaterialTheme.typography.bodyLarge, color = Token.teksRedup)
             BigAmount(total)

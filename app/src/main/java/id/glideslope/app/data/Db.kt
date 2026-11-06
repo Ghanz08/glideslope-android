@@ -118,6 +118,13 @@ interface SyncDao {
     @Query("select json from sync_rows where tbl = :tbl and `key` = :key")
     suspend fun row(tbl: String, key: String): String?
 
+    @Query("select json from sync_rows where tbl = :tbl and `key` in (:keys)")
+    fun rowsByKey(tbl: String, keys: List<String>): Flow<List<String>>
+
+    /** Rows of a child table that mention one parent id (transaction_labels keys, evidence rows). */
+    @Query("select json from sync_rows where tbl = :tbl and (`key` like :id || ':%' or json like '%' || :id || '%')")
+    fun rowsMentioning(tbl: String, id: String): Flow<List<String>>
+
     @Query("select * from transactions where id = :id")
     suspend fun txById(id: String): TxEntity?
 
