@@ -146,35 +146,3 @@ fun AuthScreen(activity: MainActivity, onSignedIn: () -> Unit) {
     }
 }
 
-@Composable
-fun TransactionsScreen(pad: PaddingValues) {
-    val ctx = androidx.compose.ui.platform.LocalContext.current
-    val items by remember { Db.get(ctx).sync().recent() }.collectAsState(initial = emptyList())
-    LazyColumn(Modifier.fillMaxSize().padding(pad), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item { Title("Transaksi") }
-        if (items.isEmpty()) item { Text("Belum ada transaksi di HP ini.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        items(items, key = TxListItem::id) { TxRow(it) }
-    }
-}
-
-@Composable
-private fun TxRow(t: TxListItem) {
-    val incoming = t.direction == "in"
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = MaterialTheme.shapes.medium) {
-        Row(Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(t.merchantRaw ?: t.categoryName ?: t.note ?: "Tanpa keterangan", fontWeight = FontWeight.SemiBold)
-                Text(
-                    listOfNotNull(jam.format(OffsetDateTime.parse(t.occurredAt)), t.accountName, t.categoryName).joinToString(" · "),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (t.status == "needs_review") Text("! Perlu dicek", color = Token.peringatan, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
-            }
-            Text(
-                (if (incoming) "+" else "−") + formatRupiah(t.amount),
-                color = if (incoming) Token.masuk else MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
-    }
-}

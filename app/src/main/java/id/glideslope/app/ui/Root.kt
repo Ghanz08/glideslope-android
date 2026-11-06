@@ -69,9 +69,15 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
     var settings by rememberSaveable { mutableStateOf(false) }
     var adding by rememberSaveable { mutableStateOf(false) }
     var entry by rememberSaveable { mutableStateOf<String?>(null) } // pengeluaran | pemasukan | transfer
+    var txDetail by rememberSaveable { mutableStateOf<String?>(null) }
     val reviewCount by remember { Db.get(activity).sync().needsReviewCount() }.collectAsState(initial = 0)
     LaunchedEffect(Unit) { PullWorker.now(activity); PullWorker.schedule(activity) }
     BackHandler(enabled = settings) { settings = false }
+    txDetail?.let { id ->
+        BackHandler { txDetail = null }
+        ProvidePrivacy { TxDetailScreen(id, onBack = { txDetail = null }) }
+        return
+    }
     entry?.let { kind ->
         BackHandler { entry = null }
         AddTxScreen(kind, onDone = { entry = null })
@@ -85,8 +91,9 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
             when {
                 settings -> SettingsHub(pad, onBack = { settings = false }, onSignedOut = onSignedOut)
                 tab == Tab.BERANDA -> HomeScreen(pad, onOpenInbox = { tab = Tab.INBOX }, onOpenAset = { tab = Tab.ASET }, onOpenProfile = { settings = true })
-                tab == Tab.TRANSAKSI -> TransactionsScreen(pad)
+                tab == Tab.TRANSAKSI -> TransactionsScreen(pad, onOpen = { txDetail = it })
                 tab == Tab.INBOX -> InboxScreen(pad)
+                tab == Tab.ASET -> AssetsScreen(pad)
                 else -> ComingNext(pad, tab.label)
             }
         }
