@@ -9,14 +9,14 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.activity.compose.BackHandler
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.runtime.collectAsState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -29,6 +29,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import id.glideslope.app.AppLock
 import id.glideslope.app.MainActivity
+import id.glideslope.app.data.Db
 import id.glideslope.app.data.SessionStore
 import id.glideslope.app.sync.PullWorker
 
@@ -61,23 +62,27 @@ private fun LockScreen(unlock: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var tab by rememberSaveable { mutableStateOf(Tab.BERANDA) }
+    var settings by rememberSaveable { mutableStateOf(false) }
+    var adding by rememberSaveable { mutableStateOf(false) }
+    val reviewCount by remember { Db.get(activity).sync().needsReviewCount() }.collectAsState(initial = 0)
     LaunchedEffect(Unit) { PullWorker.now(activity); PullWorker.schedule(activity) }
-    Scaffold(
-        bottomBar = {
-            NavigationBar {
-                listOf("Beranda", "Transaksi", "Penerus").forEachIndexed { i, label ->
-                    NavigationBarItem(selected = tab == i, onClick = { tab = i }, icon = {}, label = { Text(label) })
-                }
+    BackHandler(enabled = settings) { settings = false }
+    ProvidePrivacy {
+        Scaffold(
+            containerColor = Token.latar,
+            bottomBar = { if (!settings) BottomBar(tab, reviewCount, onTab = { tab = it }, onAdd = { adding = true }) },
+        ) { pad ->
+            when {
+                settings -> SettingsHub(pad, onBack = { settings = false }, onSignedOut = onSignedOut)
+                tab == Tab.BERANDA -> HomeScreen(pad, onOpenInbox = { tab = Tab.INBOX }, onOpenAset = { tab = Tab.ASET }, onOpenProfile = { settings = true })
+                tab == Tab.TRANSAKSI -> TransactionsScreen(pad)
+                else -> ComingNext(pad, tab.label)
             }
-        },
-    ) { pad ->
-        when (tab) {
-            0 -> HomeScreen(pad, onSignedOut)
-            1 -> TransactionsScreen(pad)
-            else -> ForwarderScreen(pad)
         }
+        if (adding) AddSheet(onDismiss = { adding = false })
     }
 }

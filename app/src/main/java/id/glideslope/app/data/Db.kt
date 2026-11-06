@@ -86,6 +86,12 @@ interface SyncDao {
            order by t.occurredAt desc limit :limit""",
     )
     fun recent(limit: Int = 300): Flow<List<TxListItem>>
+
+    @Query("select count(*) from transactions where status = 'needs_review' and deletedAt is null")
+    fun needsReviewCount(): Flow<Int>
+
+    @Query("select * from accounts where not isSystem and archivedAt is null order by name")
+    fun activeAccounts(): Flow<List<AccountEntity>>
 }
 
 @Database(entities = [SyncRow::class, TxEntity::class, AccountEntity::class, CategoryEntity::class, MetaEntity::class], version = 1)
