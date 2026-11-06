@@ -31,11 +31,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -68,8 +67,8 @@ import id.glideslope.app.Queue
 import id.glideslope.app.SendWorker
 import id.glideslope.app.Settings
 import id.glideslope.app.TERKIRIM
-import id.glideslope.app.core.FINANCE_APPS
-import id.glideslope.app.core.Payload
+import id.glideslope.core.FINANCE_APPS
+import id.glideslope.core.Payload
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -79,25 +78,24 @@ private val wib = DateTimeFormatter.ofPattern("d MMM HH.mm", Locale.forLanguageT
 private fun waktu(ms: Long) = wib.format(Instant.ofEpochMilli(ms)) + " WIB"
 private fun appName(pkg: String) = FINANCE_APPS.firstOrNull { it.first == pkg }?.second ?: pkg
 
+/** The notification forwarder (F-12.5) as one tab of the app: Status, Log and Setelan on top tabs. */
 @Composable
-fun App() {
+fun ForwarderScreen(pad: PaddingValues) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     // system settings change outside the app, so every return to the app re-reads them
     var tick by remember { mutableIntStateOf(0) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { tick++ }
-    Scaffold(
-        bottomBar = {
-            NavigationBar {
-                listOf("Status", "Log", "Setelan").forEachIndexed { i, label ->
-                    NavigationBarItem(selected = tab == i, onClick = { tab = i }, icon = {}, label = { Text(label) })
-                }
+    Column(Modifier.fillMaxSize().padding(pad)) {
+        PrimaryTabRow(selectedTabIndex = tab) {
+            listOf("Status", "Log", "Setelan").forEachIndexed { i, label ->
+                Tab(selected = tab == i, onClick = { tab = i }, text = { Text(label) })
             }
-        },
-    ) { pad ->
+        }
+        val inner = PaddingValues(0.dp)
         when (tab) {
-            0 -> StatusScreen(pad, tick, onOpenSettings = { tab = 2 }, refresh = { tick++ })
-            1 -> LogScreen(pad, tick, refresh = { tick++ })
-            else -> SettingsScreen(pad, saved = { tick++; tab = 0 })
+            0 -> StatusScreen(inner, tick, onOpenSettings = { tab = 2 }, refresh = { tick++ })
+            1 -> LogScreen(inner, tick, refresh = { tick++ })
+            else -> SettingsScreen(inner, saved = { tick++; tab = 0 })
         }
     }
 }
@@ -155,7 +153,7 @@ private fun StatusScreen(pad: PaddingValues, tick: Int, onOpenSettings: () -> Un
     val rejected = remember(tick) { q.count(DITOLAK) }
     val ok = listener && s.ready && s.allowed.isNotEmpty()
     Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Glideslope", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
+        Text("Penerus notifikasi", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
         Card(
             colors = CardDefaults.cardColors(containerColor = if (ok) MaterialTheme.colorScheme.primaryContainer else Token.peringatanLatar),
             shape = MaterialTheme.shapes.large,

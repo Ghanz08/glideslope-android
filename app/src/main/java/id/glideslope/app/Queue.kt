@@ -5,7 +5,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
-import id.glideslope.app.core.Payload
+import id.glideslope.core.Payload
 
 data class Item(val id: Long, val sourceApp: String, val text: String, val postedAt: String, val status: String, val result: String?, val createdAt: Long) {
     fun payload() = Payload(sourceApp, text, postedAt, "")

@@ -11,8 +11,8 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import id.glideslope.app.core.Outcome
-import id.glideslope.app.core.outcome
+import id.glideslope.core.Outcome
+import id.glideslope.core.outcome
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException

@@ -5,8 +5,8 @@ import android.app.Notification
 import android.content.ComponentName
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
-import id.glideslope.app.core.Raw
-import id.glideslope.app.core.capture
+import id.glideslope.core.Raw
+import id.glideslope.core.capture
 
 class Listener : NotificationListenerService() {
     override fun onListenerConnected() {

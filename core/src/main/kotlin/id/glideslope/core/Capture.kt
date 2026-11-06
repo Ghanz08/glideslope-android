@@ -1,6 +1,6 @@
 // Pure capture rules (PRD F-12.5): which notifications are forwarded and what text is sent.
 // No Android types here, so it runs in plain JVM unit tests.
-package id.glideslope.app.core
+package id.glideslope.core
 
 import java.time.Instant
 

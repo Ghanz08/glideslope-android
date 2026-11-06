@@ -1,4 +1,4 @@
-package id.glideslope.app.core
+package id.glideslope.core
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
