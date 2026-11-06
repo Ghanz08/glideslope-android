@@ -14,11 +14,11 @@ Sumber kebenaran tetap PRD Glideslope (F-01 sampai F-14). Dokumen ini urutan ker
 
 | # | Isi | Server (op baru di `sync/push`) |
 |---|---|---|
-| A | Outbox + PushWorker + penerapan lokal; Repo `sync_rows`; tumpukan layar | – |
-| B | Tambah: pengeluaran, pemasukan, transfer (numpad, kategori, akun, tanggal, catatan, sekali jalan, "Dipakai untuk…") | `tx.create`, `tx.transfer` (ada) |
-| C | Inbox: kartu geser, Konfirmasi/Ubah/Abaikan, transfer vs pengeluaran, usulan cocok | `review.*`, `proposal.*`, `tx.convert` (ada) |
-| D | Transaksi: kelompok per hari, cari, filter; detail (bukti, label); ubah, hapus, pulihkan | `tx.edit`, `tx.delete`, `tx.restore` (ada), `label.set` |
-| E | Aset: akun dan saldo, detail akun (titik cek, biaya isi saldo), aset dan detail (harga, beli, cairkan), piutang | `account.*`, `checkpoint.add`, `asset.*`, `repayment.add` |
+| A ✅ (dibangun, uji HP menunggu) | Outbox + PushWorker + penerapan lokal; Repo `sync_rows`; tumpukan layar | – |
+| B ✅ (dibangun) | Tambah: pengeluaran, pemasukan, transfer (numpad, kategori, akun, tanggal, catatan, sekali jalan, "Dipakai untuk…") | `tx.create`, `tx.transfer` (ada) |
+| C ✅ (dibangun) | Inbox: kartu geser, Konfirmasi/Ubah/Abaikan, transfer vs pengeluaran, usulan cocok | `review.*`, `proposal.*`, `tx.convert` (ada) |
+| D ✅ (dibangun) | Transaksi: kelompok per hari, cari, filter; detail (bukti, label); ubah, hapus, pulihkan | `tx.edit`, `tx.delete`, `tx.restore` (ada), `label.set` |
+| E ◐ (daftar dibangun; detail dan tulis menyusul) | Aset: akun dan saldo, detail akun (titik cek, biaya isi saldo), aset dan detail (harga, beli, cairkan), piutang | `account.*`, `checkpoint.add`, `asset.*`, `repayment.add` |
 | F | Analitik (pengeluaran, kategori, kekayaan) dan Anggaran | `budget.set` |
 | G | Rencana pengeluaran, Langganan, Label | `planned.*`, `subscription.*`, `label.*` |
 | H | Bagi tagihan, Scan nota (CameraX → `/api/v1/receipts`) | `split.*`, unggah nota |
