@@ -102,7 +102,7 @@ fun <T> ChipRow(items: List<T>, selected: (T) -> Boolean, label: (T) -> String, 
                     .border(1.dp, if (on) Token.aksen else Token.garis, CircleShape)
                     .clickable { onPick(item) }.padding(horizontal = 16.dp),
                 contentAlignment = Alignment.Center,
-            ) { Text(label(item), style = MaterialTheme.typography.labelLarge, color = if (on) Token.permukaan else Token.teks) }
+            ) { Text(label(item), style = MaterialTheme.typography.labelLarge, color = if (on) Token.teksDiAksen else Token.teks) }
         }
     }
 }

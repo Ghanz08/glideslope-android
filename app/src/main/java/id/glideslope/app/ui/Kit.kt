@@ -158,8 +158,8 @@ fun SectionHeader(title: String, link: String? = null, onLink: (() -> Unit)? = n
                 Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onLink).padding(horizontal = 8.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(link, color = Token.aksen, style = MaterialTheme.typography.labelLarge)
-                Icon(Ic.chevronRight, null, tint = Token.aksen, modifier = Modifier.size(18.dp))
+                Text(link, color = Token.aksenTeks, style = MaterialTheme.typography.labelLarge)
+                Icon(Ic.chevronRight, null, tint = Token.aksenTeks, modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -214,11 +214,11 @@ fun InfoBanner(text: String, warning: Boolean = false, action: String? = null, o
         Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(if (warning) Token.peringatanLatar else Token.aksenLembut).padding(16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Icon(if (warning) Ic.triangleAlert else Ic.info, null, tint = if (warning) Token.peringatan else Token.aksen, modifier = Modifier.size(20.dp))
+        Icon(if (warning) Ic.triangleAlert else Ic.info, null, tint = if (warning) Token.peringatan else Token.aksenTeks, modifier = Modifier.size(20.dp))
         Column(Modifier.weight(1f)) {
             Text(text, style = MaterialTheme.typography.bodyMedium, color = Token.teks)
             if (action != null && onAction != null) {
-                Text(action, style = MaterialTheme.typography.labelLarge, color = Token.aksen, modifier = Modifier.padding(top = 6.dp).clickable(onClick = onAction))
+                Text(action, style = MaterialTheme.typography.labelLarge, color = Token.aksenTeks, modifier = Modifier.padding(top = 6.dp).clickable(onClick = onAction))
             }
         }
         onClose?.let { Icon(Ic.x, "Tutup", tint = Token.teksRedup, modifier = Modifier.size(20.dp).clickable(onClick = it)) }
@@ -246,25 +246,29 @@ enum class Tab(val label: String, val icon: ImageVector) {
     BERANDA("Beranda", Ic.home), INBOX("Inbox", Ic.inbox), TRANSAKSI("Transaksi", Ic.list), ASET("Aset", Ic.wallet)
 }
 
+/** F-16.4: a floating bar (inset 16 dp, 64 dp high, pill corners) with a 60 dp "+"; Android has no backdrop blur here, so the glass is near solid. */
 @Composable
 fun BottomBar(current: Tab, inboxCount: Int, onTab: (Tab) -> Unit, onAdd: () -> Unit) {
-    Surface(color = Token.permukaan, shadowElevation = 0.dp) {
-        Column {
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Token.garis))
-            Row(Modifier.fillMaxWidth().navigationBarsPadding().height(80.dp), verticalAlignment = Alignment.CenterVertically) {
-                NavSlot(Tab.BERANDA, current, 0, onTab)
-                NavSlot(Tab.INBOX, current, inboxCount, onTab)
-                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    Box(
-                        Modifier.size(56.dp).shadow(6.dp, CircleShape).clip(CircleShape).background(Token.aksen)
-                            .clickable(onClickLabel = "Tambah", role = Role.Button, onClick = onAdd)
-                            .semantics { contentDescription = "Tambah" },
-                        contentAlignment = Alignment.Center,
-                    ) { Icon(Ic.plus, null, tint = Token.permukaan, modifier = Modifier.size(28.dp)) }
-                }
-                NavSlot(Tab.TRANSAKSI, current, 0, onTab)
-                NavSlot(Tab.ASET, current, 0, onTab)
+    Box(Modifier.fillMaxWidth().background(Color.Transparent).navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
+        val shape = RoundedCornerShape(32.dp)
+        Row(
+            Modifier.fillMaxWidth().height(64.dp)
+                .shadow(10.dp, shape, ambientColor = Token.teks.copy(alpha = 0.10f), spotColor = Token.teks.copy(alpha = 0.14f))
+                .clip(shape).background(Token.permukaanTinggi.copy(alpha = 0.97f)).border(1.dp, Token.kacaGaris, shape),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            NavSlot(Tab.BERANDA, current, 0, onTab)
+            NavSlot(Tab.INBOX, current, inboxCount, onTab)
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier.size(60.dp).shadow(8.dp, CircleShape, ambientColor = Token.aksen.copy(alpha = 0.35f), spotColor = Token.aksen.copy(alpha = 0.35f)).clip(CircleShape).background(Token.aksen)
+                        .clickable(onClickLabel = "Tambah", role = Role.Button, onClick = onAdd)
+                        .semantics { contentDescription = "Tambah" },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Ic.plus, null, tint = Token.teksDiAksen, modifier = Modifier.size(28.dp)) }
             }
+            NavSlot(Tab.TRANSAKSI, current, 0, onTab)
+            NavSlot(Tab.ASET, current, 0, onTab)
         }
     }
 }
@@ -273,7 +277,7 @@ fun BottomBar(current: Tab, inboxCount: Int, onTab: (Tab) -> Unit, onAdd: () -> 
 private fun RowScope.NavSlot(tab: Tab, current: Tab, badge: Int, onTab: (Tab) -> Unit) {
     val on = tab == current
     Column(
-        Modifier.weight(1f).selectable(on, role = Role.Tab) { onTab(tab) }.padding(vertical = 8.dp)
+        Modifier.weight(1f).selectable(on, role = Role.Tab) { onTab(tab) }.padding(vertical = 6.dp)
             .semantics { contentDescription = tab.label + if (badge > 0) ", $badge perlu dicek" else "" },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -281,7 +285,7 @@ private fun RowScope.NavSlot(tab: Tab, current: Tab, badge: Int, onTab: (Tab) ->
             Box(
                 Modifier.width(56.dp).height(32.dp).clip(CircleShape).background(if (on) Token.aksenLembut else Color.Transparent),
                 contentAlignment = Alignment.Center,
-            ) { Icon(tab.icon, null, tint = if (on) Token.aksen else Token.teksRedup, modifier = Modifier.size(24.dp)) }
+            ) { Icon(tab.icon, null, tint = if (on) Token.aksenTeks else Token.teksRedup, modifier = Modifier.size(24.dp)) }
             if (badge > 0) {
                 Box(
                     Modifier.align(Alignment.TopEnd).offset(x = (-4).dp, y = (-6).dp).size(20.dp).clip(CircleShape).background(Token.teks)
@@ -291,6 +295,6 @@ private fun RowScope.NavSlot(tab: Tab, current: Tab, badge: Int, onTab: (Tab) ->
             }
         }
         Spacer(Modifier.height(4.dp))
-        Text(tab.label, style = MaterialTheme.typography.labelMedium, color = if (on) Token.aksen else Token.teksRedup, maxLines = 1, overflow = TextOverflow.Clip)
+        Text(tab.label, style = MaterialTheme.typography.labelMedium, color = if (on) Token.aksenTeks else Token.teksRedup, maxLines = 1, overflow = TextOverflow.Clip)
     }
 }

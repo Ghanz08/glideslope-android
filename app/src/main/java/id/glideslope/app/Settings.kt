@@ -29,7 +29,7 @@ class Settings(ctx: Context) {
         get() = prefs.getLong("last_sent_at", 0)
         set(v) = prefs.edit().putLong("last_sent_at", v).apply()
 
-    val webhookUrl get() = serverUrl.trimEnd('/') + "/api/ingest/webhook"
+    val webhookUrl get() = serverUrl.trimEnd('/') + "/api/v1/ingest/webhook"
     val ready get() = serverUrl.startsWith("https://") && !secret.isNullOrEmpty() && !secretRejected
 
     private fun encrypt(plain: String) = Base64.encodeToString(Crypto.encrypt(ALIAS, plain.toByteArray()), Base64.NO_WRAP)

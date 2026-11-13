@@ -6,7 +6,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.MediaType.Companion.toMediaType
@@ -41,14 +43,7 @@ class Api(private val settings: Settings, private val sessions: SessionStore) {
         }
     }
 
-    private fun fail(status: Int, body: String): ApiResult.Fail {
-        val e = runCatching { json.parseToJsonElement(body).jsonObject["error"]?.jsonObject }.getOrNull()
-        return ApiResult.Fail(
-            status,
-            e?.get("code")?.jsonPrimitive?.content ?: "GALAT",
-            e?.get("message")?.jsonPrimitive?.content ?: "Server belum bisa dihubungi. Coba lagi.",
-        )
-    }
+    private fun fail(status: Int, body: String) = parseFailure(status, body)
 
     private fun post(path: String, body: String, token: String? = null) =
         Request.Builder().url(url(path)).post(body.toRequestBody(jsonType)).apply { token?.let { header("authorization", "Bearer $it") } }.build()
@@ -103,8 +98,51 @@ class Api(private val settings: Settings, private val sessions: SessionStore) {
     suspend fun reportError(where: String, message: String) =
         authed { post("/api/v1/errors", json.encodeToString(mapOf("where" to where, "message" to message.take(2000))), it) }
 
+    /** Any authorised call whose answer may be an object or an array (the layar screens). */
+    private suspend fun authedAny(build: (String) -> Request): ApiResult<JsonElement> {
+        repeat(2) { attempt ->
+            val token = sessions.get()?.access_token ?: return ApiResult.Fail(401, "TANPA_SESI", "Silakan masuk dulu.")
+            val (status, body) = send(build(token)) ?: return ApiResult.Offline
+            if (status == 401 && attempt == 0 && refresh()) return@repeat
+            return if (status in 200..299) ApiResult.Ok(if (body.isBlank()) JsonObject(emptyMap()) else json.parseToJsonElement(body)) else fail(status, body)
+        }
+        return ApiResult.Fail(401, "TANPA_SESI", "Sesi berakhir. Masuk lagi.")
+    }
+
+    /** GET /api/v1/… (screens under /layar, lists, quotes). */
+    suspend fun get(path: String) = authedAny { Request.Builder().url(url(path)).header("authorization", "Bearer $it").build() }
+
+    /** A write to the server (POST, PATCH, PUT, DELETE) with a JSON body; online only, nothing is queued. */
+    suspend fun send(method: String, path: String, body: String = "{}") =
+        authedAny { Request.Builder().url(url(path)).method(method, if (method == "DELETE" && body == "{}") null else body.toRequestBody(jsonType)).header("authorization", "Bearer $it").build() }
+
+    /**
+     * F-09: the receipt photo, plus the text the phone already read (ML Kit) as an optional "ocr" part. A receipt that
+     * parses and validates from that text never goes to the OCR service; otherwise the server reads the photo itself.
+     */
+    suspend fun uploadReceipt(jpeg: ByteArray, ocrJson: String?): ApiResult<JsonElement> {
+        val form = okhttp3.MultipartBody.Builder().setType(okhttp3.MultipartBody.FORM)
+            .addFormDataPart("file", "nota.jpg", jpeg.toRequestBody("image/jpeg".toMediaType()))
+            .apply { if (ocrJson != null) addFormDataPart("ocr", ocrJson) }
+            .build()
+        return authedAny { Request.Builder().url(url("/api/v1/receipts")).post(form).header("authorization", "Bearer $it").build() }
+    }
+
     suspend fun logout() {
         sessions.get()?.let { send(post("/api/v1/auth/keluar", json.encodeToString(mapOf("refresh_token" to it.refresh_token)), it.access_token)) }
         sessions.set(null)
     }
+}
+
+/** The server answers errors in two shapes: legacy `{error:{code,message}}` (auth, sync) and RFC 9457 `{code,detail}` (everything else). */
+fun parseFailure(status: Int, body: String): ApiResult.Fail {
+    val root = runCatching { Json.parseToJsonElement(body).jsonObject }.getOrNull()
+    val legacy = root?.get("error") as? JsonObject
+    val code = legacy?.get("code") ?: root?.get("code")
+    val msg = legacy?.get("message") ?: root?.get("detail")
+    return ApiResult.Fail(
+        status,
+        (code as? JsonPrimitive)?.content ?: "GALAT",
+        (msg as? JsonPrimitive)?.content ?: "Server belum bisa dihubungi. Coba lagi.",
+    )
 }

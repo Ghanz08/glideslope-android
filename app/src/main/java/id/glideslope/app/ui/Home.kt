@@ -146,7 +146,7 @@ private fun Hero(s: JsonObject, today: LocalDate) {
     val projection = status in setOf("sesuai", "perlu_perhatian", "belum_cukup")
     var view by rememberSaveable { mutableIntStateOf(0) }
     val (pillBg, pillFg, pillIcon) = when (status) {
-        "sesuai" -> Triple(Token.aksenLembut, Token.aksen, Ic.circleCheck)
+        "sesuai" -> Triple(Token.aksenLembut, Token.aksenTeks, Ic.circleCheck)
         "perlu_perhatian" -> Triple(Token.peringatanLatar, Token.peringatan, Ic.triangleAlert)
         "belum_cukup" -> Triple(Token.galatLatar, Token.galat, Ic.circleAlert)
         else -> Triple(Token.isian, Token.teksRedup, Ic.info)
@@ -204,7 +204,7 @@ private fun RunwayChart(series: List<Point>, today: LocalDate, graduation: Local
     val hidden = LocalPrivacy.current.hidden
     val measurer = rememberTextMeasurer()
     val label = "Lulus ${formatMonthYear(graduation)} · sisa ${if (hidden) "Rp ••" else "Rp ${formatJt(leftover)}"}"
-    val labelStyle = MaterialTheme.typography.labelMedium.copy(color = Token.aksen)
+    val labelStyle = MaterialTheme.typography.labelMedium.copy(color = Token.grafik1)
     val alt = "Grafik runway. Dana sekarang ${if (hidden) "disembunyikan" else formatRupiah(series.firstOrNull()?.value ?: 0)}. " +
         "Sisa saat lulus ${formatMonthYear(graduation)} ${if (hidden) "disembunyikan" else formatRupiah(leftover)}."
     Column(Modifier.semantics(mergeDescendants = true) { contentDescription = alt }) {
@@ -224,17 +224,17 @@ private fun RunwayChart(series: List<Point>, today: LocalDate, graduation: Local
             if (before.isNotEmpty()) {
                 val area = line(before).apply { lineTo(x(graduation), y(0)); lineTo(x(today), y(0)); close() }
                 drawPath(area, Token.aksenLembut)
-                drawPath(line(before), Token.aksen, style = Stroke(3f * k, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                drawPath(line(before), Token.grafik1, style = Stroke(3f * k, cap = StrokeCap.Round, join = StrokeJoin.Round))
             }
-            if (after.size > 1) drawPath(line(after), Token.aksen, style = Stroke(3f * k, cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f * k, 7f * k))))
+            if (after.size > 1) drawPath(line(after), Token.grafik1, style = Stroke(3f * k, cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f * k, 7f * k))))
             val gx = x(graduation)
             drawLine(Token.garisKontrol, Offset(gx, padT - 6f * k), Offset(gx, y(0)), strokeWidth = 1.5f * k, pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f * k, 4f * k)))
-            series.firstOrNull()?.let { drawCircle(Token.aksen, 6f * k, Offset(x(today), y(it.value))) }
+            series.firstOrNull()?.let { drawCircle(Token.grafik1, 6f * k, Offset(x(today), y(it.value))) }
             drawCircle(Token.permukaan, 8f * k, Offset(gx, y(max(0, leftover))))
-            drawCircle(Token.aksen, 6f * k, Offset(gx, y(max(0, leftover))))
+            drawCircle(Token.grafik1, 6f * k, Offset(gx, y(max(0, leftover))))
             if (depleted) series.lastOrNull()?.let {
                 drawCircle(Token.permukaan, 7f * k, Offset(x(it.date), y(it.value)))
-                drawCircle(Token.aksen, 7f * k, Offset(x(it.date), y(it.value)), style = Stroke(3f * k))
+                drawCircle(Token.grafik1, 7f * k, Offset(x(it.date), y(it.value)), style = Stroke(3f * k))
             }
             val text = measurer.measure(label, labelStyle)
             val w = text.size.width + 28f * k
@@ -305,11 +305,11 @@ private fun AccountsRow(accounts: List<AccountEntity>, s: JsonObject) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(end = 16.dp)) {
         item {
             GsCard(Modifier.width(224.dp).height(141.dp), color = Token.aksen) {
-                Text("Rekening & wallet", style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp), color = Token.permukaan)
-                Text("${accounts.size} akun · siap pakai", style = MaterialTheme.typography.bodySmall, color = Token.permukaan.copy(alpha = 0.85f))
+                Text("Rekening & wallet", style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp), color = Token.teksDiAksen)
+                Text("${accounts.size} akun · siap pakai", style = MaterialTheme.typography.bodySmall, color = Token.teksDiAksen.copy(alpha = 0.85f))
                 Spacer(Modifier.weight(1f))
-                Text(rupiah(total), style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp), color = Token.permukaan)
-                s.long("month_spend")?.let { Text("Keluar ${if (LocalPrivacy.current.hidden) "Rp ••" else "Rp ${formatJt(it)}"} bulan ini", style = MaterialTheme.typography.bodySmall, color = Token.permukaan.copy(alpha = 0.85f)) }
+                Text(rupiah(total), style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp), color = Token.teksDiAksen)
+                s.long("month_spend")?.let { Text("Keluar ${if (LocalPrivacy.current.hidden) "Rp ••" else "Rp ${formatJt(it)}"} bulan ini", style = MaterialTheme.typography.bodySmall, color = Token.teksDiAksen.copy(alpha = 0.85f)) }
             }
         }
         items(accounts, key = { it.id }) { a ->
@@ -335,8 +335,8 @@ private fun ReviewCard(count: Int, onOpen: () -> Unit) {
                 Text("$count", style = MaterialTheme.typography.labelMedium, color = Token.teksRedup)
             }
             Spacer(Modifier.weight(1f))
-            Text("Buka Inbox", style = MaterialTheme.typography.labelLarge, color = Token.aksen)
-            Icon(Ic.chevronRight, null, tint = Token.aksen, modifier = Modifier.size(18.dp))
+            Text("Buka Inbox", style = MaterialTheme.typography.labelLarge, color = Token.aksenTeks)
+            Icon(Ic.chevronRight, null, tint = Token.aksenTeks, modifier = Modifier.size(18.dp))
         }
         Text("$count transaksi menunggu konfirmasimu.", style = MaterialTheme.typography.bodyMedium, color = Token.teksRedup, modifier = Modifier.padding(top = 6.dp))
     }

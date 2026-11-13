@@ -149,7 +149,7 @@ fun InboxScreen(pad: PaddingValues) {
                 Text("Semua sudah ditinjau", style = MaterialTheme.typography.titleLarge)
                 Text("Transaksi baru dari email dan notifikasi akan muncul di sini.", color = Token.teksRedup, modifier = Modifier.padding(top = 8.dp))
                 if (skipped.isNotEmpty()) Text(
-                    "Tampilkan lagi ${skipped.size} yang dilewati", color = Token.aksen, style = MaterialTheme.typography.labelLarge,
+                    "Tampilkan lagi ${skipped.size} yang dilewati", color = Token.aksenTeks, style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(top = 24.dp).clickable { skipped = emptySet(); total = 0 }.padding(12.dp),
                 )
             }
@@ -246,7 +246,7 @@ private fun SwipeCard(key: String, onConfirm: () -> Unit, onSkip: () -> Unit, co
             Box(
                 Modifier.align(if (confirm) Alignment.TopStart else Alignment.TopEnd).padding(16.dp).clip(CircleShape)
                     .background(if (confirm) Token.aksen else Token.teksRedup).padding(horizontal = 14.dp, vertical = 6.dp),
-            ) { Text(if (confirm) "Konfirmasi" else "Lewati", color = Token.permukaan, style = MaterialTheme.typography.labelLarge) }
+            ) { Text(if (confirm) "Konfirmasi" else "Lewati", color = Token.teksDiAksen, style = MaterialTheme.typography.labelLarge) }
         }
     }
 }
@@ -255,7 +255,7 @@ private fun SwipeCard(key: String, onConfirm: () -> Unit, onSkip: () -> Unit, co
 private fun ReviewDetails(tx: TxEntity, account: AccountEntity?, category: CategoryEntity?, reason: String?, onEdit: () -> Unit) {
     val time = runCatching { cardTime.format(OffsetDateTime.parse(tx.occurredAt).atZoneSameInstant(WIB)) }.getOrDefault("")
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        IconTile(if (tx.direction == "in") Ic.arrowDownLeft else Ic.arrowUpRight, bg = Token.aksenLembut, fg = Token.aksen, size = 56.dp)
+        IconTile(if (tx.direction == "in") Ic.arrowDownLeft else Ic.arrowUpRight, bg = Token.aksenLembut, fg = Token.aksenTeks, size = 56.dp)
         Column(Modifier.weight(1f)) {
             Text(tx.merchantRaw ?: "Transaksi", style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(listOfNotNull(time, account?.takeIf { !it.isSystem }?.name).joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = Token.teksRedup)

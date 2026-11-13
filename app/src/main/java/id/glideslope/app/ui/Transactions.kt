@@ -187,7 +187,7 @@ fun TxDetailScreen(id: String, onBack: () -> Unit) {
                     t.deletedAt != null -> Pill("Dihapus", Ic.x, Token.galatLatar, Token.galat)
                     t.pending -> Pill("Menunggu dikirim", null, Token.isian, Token.teksRedup)
                     t.status == "needs_review" -> Pill("Perlu dicek", Ic.triangleAlert, Token.peringatanLatar, Token.peringatan)
-                    else -> Pill("Terkonfirmasi", Ic.circleCheck, Token.aksenLembut, Token.aksen)
+                    else -> Pill("Terkonfirmasi", Ic.circleCheck, Token.aksenLembut, Token.aksenTeks)
                 }
                 DetailRow("Akun", acc?.name ?: "—", if (t.deletedAt == null && t.kind != "transfer") ({ editing = true }) else null)
                 if (t.kind != "transfer") DetailRow("Kategori", cat?.name ?: "—", if (t.deletedAt == null) ({ editing = true }) else null)

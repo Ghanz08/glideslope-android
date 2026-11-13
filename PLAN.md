@@ -19,7 +19,7 @@ Sumber kebenaran tetap PRD Glideslope (F-01 sampai F-14). Dokumen ini urutan ker
 | C ✅ (dibangun) | Inbox: kartu geser, Konfirmasi/Ubah/Abaikan, transfer vs pengeluaran, usulan cocok | `review.*`, `proposal.*`, `tx.convert` (ada) |
 | D ✅ (dibangun) | Transaksi: kelompok per hari, cari, filter; detail (bukti, label); ubah, hapus, pulihkan | `tx.edit`, `tx.delete`, `tx.restore` (ada), `label.set` |
 | E ◐ (daftar dibangun; detail dan tulis menyusul) | Aset: akun dan saldo, detail akun (titik cek, biaya isi saldo), aset dan detail (harga, beli, cairkan), piutang | `account.*`, `checkpoint.add`, `asset.*`, `repayment.add` |
-| F | Analitik (pengeluaran, kategori, kekayaan) dan Anggaran | `budget.set` |
+| F ◐ (2026-11-13: baca online dari /layar, belum offline/tulis) | Analitik (pengeluaran, kategori, kekayaan) dan Anggaran | `budget.set` |
 | G | Rencana pengeluaran, Langganan, Label | `planned.*`, `subscription.*`, `label.*` |
 | H | Bagi tagihan, Scan nota (CameraX → `/api/v1/receipts`) | `split.*`, unggah nota |
 | I | Pengaturan lengkap, Sumber email, Gmail (Custom Tab), ekspor | `settings.update`, `source.*` |
@@ -35,3 +35,7 @@ Sumber kebenaran tetap PRD Glideslope (F-01 sampai F-14). Dokumen ini urutan ker
 ## Selesai bila
 
 Semua 23 layar pemilik native; tidak ada tautan ke PWA kecuali sambung Gmail; offline: tambah/konfirmasi/ubah tersimpan dan terkirim tanpa duplikat; TalkBack dan huruf 200% lolos.
+
+
+## Catatan 2026-11-13
+Tema gelap + bilah bawah melayang; API Go; Scan nota dengan OCR di HP (ML Kit) + Tinjau nota; layar F, G (baca) dan Sumber email online; belum: tulis offline untuk anggaran/rencana/langganan/label, Bagi tagihan native, widget/FCM (J), uji di perangkat (tidak ada emulator di Mac ini).

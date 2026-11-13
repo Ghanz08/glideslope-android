@@ -1,6 +1,6 @@
 # Glideslope Android
 
-Aplikasi pendamping kecil untuk [Glideslope](https://github.com/Ghanz08/glideslope): membaca notifikasi dari aplikasi keuangan yang kamu pilih (GoPay, OVO, DANA, ShopeePay, wondr, Livin', dan lain-lain), lalu meneruskan teksnya ke webhook Glideslope (`POST /api/ingest/webhook`). Server yang membaca jumlah, merchant, dan mencocokkan transaksi; tampilan utama tetap PWA.
+Aplikasi pendamping kecil untuk [Glideslope](https://github.com/Ghanz08/glideslope): membaca notifikasi dari aplikasi keuangan yang kamu pilih (GoPay, OVO, DANA, ShopeePay, wondr, Livin', dan lain-lain), lalu meneruskan teksnya ke webhook Glideslope (`POST /api/v1/ingest/webhook`, dilayani backend Go). Server yang membaca jumlah, merchant, dan mencocokkan transaksi; tampilan utama tetap PWA.
 
 Rancangan: PRD Glideslope F-12.5.
 
@@ -30,3 +30,11 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - Android 15+ menyensor isi notifikasi yang berisi kode OTP untuk aplikasi seperti ini; notifikasi transaksi biasa tidak terpengaruh.
 - Notifikasi yang dihapus saat aplikasi tidak tersambung tidak bisa diambil lagi.
 - Verifikasi pengembang Google berlaku di Indonesia sejak 30 Sep 2026: untuk APK rilis, daftarkan `id.glideslope.app` dan kunci tanda tangannya (akun limited distribution), atau pasang lewat `adb`.
+
+
+## Server, tema, dan OCR (2026-11-13)
+- **API:** semua panggilan ke `/api/v1` backend Go (di VPS, Caddy mengarahkan `/api/v1/*` langsung ke kontainer Go). Galat dibaca dalam dua bentuk: lama `{error:{code,message}}` (masuk, sinkron) dan RFC 9457 `{code,detail}` (layar lain).
+- **Tema:** Terang, Gelap, atau Sistem (Lainnya → Tampilan), token sama dengan PWA v2; bilah bawah melayang 64 dp dengan tombol + 60 dp.
+- **Scan nota:** foto dikecilkan (1568 px, JPEG < 5 MB) dan dibaca di HP dengan ML Kit (model Latin ikut terpasang, tanpa internet). Teksnya dikirim bersama foto ke `POST /api/v1/receipts` (bagian `ocr`); server mem-parse dan memvalidasi, dan baru membaca fotonya dengan OCR server (RapidOCR) bila hasil di HP tidak lolos. Lalu layar Tinjau nota: koreksi angka, pilih akun/kategori, konfirmasi.
+- **Layar online (butuh koneksi):** Analitik, Anggaran, Langganan, Piutang (WhatsApp, tandai lunas), Rencana pengeluaran, Label, Sumber email, dari menu **Lainnya**. Bagi tagihan masih membuka web.
+- **Pemantau notifikasi:** tetap di menu Lainnya → Pemantau notifikasi HP.

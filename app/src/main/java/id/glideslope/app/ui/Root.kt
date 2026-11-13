@@ -29,6 +29,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import id.glideslope.app.AppLock
 import id.glideslope.app.MainActivity
+import id.glideslope.app.Settings
 import id.glideslope.app.data.Db
 import id.glideslope.app.data.SessionStore
 import id.glideslope.app.sync.PullWorker
@@ -70,9 +71,36 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
     var adding by rememberSaveable { mutableStateOf(false) }
     var entry by rememberSaveable { mutableStateOf<String?>(null) } // pengeluaran | pemasukan | transfer
     var txDetail by rememberSaveable { mutableStateOf<String?>(null) }
+    // screens opened from "Lainnya" or the "+" sheet: analitik, anggaran, …, nota, nota/<id>, notifikasi
+    var screen by rememberSaveable { mutableStateOf<String?>(null) }
     val reviewCount by remember { Db.get(activity).sync().needsReviewCount() }.collectAsState(initial = 0)
     LaunchedEffect(Unit) { PullWorker.now(activity); PullWorker.schedule(activity) }
     BackHandler(enabled = settings) { settings = false }
+    screen?.let { dest ->
+        val back = {
+            when {
+                dest.startsWith("nota/") -> screen = "nota" // from the review back to the scanner
+                dest == "nota" -> screen = null
+                else -> { screen = null; settings = true } // from a Lainnya screen back to the hub
+            }
+        }
+        BackHandler { back() }
+        ProvidePrivacy {
+            when {
+                dest == "analitik" -> AnalyticsScreen(onBack = back)
+                dest == "anggaran" -> BudgetScreen(onBack = back)
+                dest == "langganan" -> SubscriptionsScreen(onBack = back)
+                dest == "piutang" -> ReceivablesScreen(onBack = back)
+                dest == "rencana" -> PlannedScreen(onBack = back)
+                dest == "label" -> LabelsScreen(onBack = back)
+                dest == "sumber" -> SourcesScreen(onBack = back)
+                dest == "notifikasi" -> ForwarderPage(onBack = back)
+                dest == "nota" -> ScanScreen(onBack = back, onOpen = { screen = "nota/$it" })
+                dest.startsWith("nota/") -> ReceiptReviewScreen(dest.removePrefix("nota/"), onBack = back, onDone = { screen = null; tab = Tab.TRANSAKSI })
+            }
+        }
+        return
+    }
     txDetail?.let { id ->
         BackHandler { txDetail = null }
         ProvidePrivacy { TxDetailScreen(id, onBack = { txDetail = null }) }
@@ -89,7 +117,7 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
             bottomBar = { if (!settings) BottomBar(tab, reviewCount, onTab = { tab = it }, onAdd = { adding = true }) },
         ) { pad ->
             when {
-                settings -> SettingsHub(pad, onBack = { settings = false }, onSignedOut = onSignedOut)
+                settings -> SettingsHub(pad, onBack = { settings = false }, onOpen = { screen = it }, onSignedOut = onSignedOut)
                 tab == Tab.BERANDA -> HomeScreen(pad, onOpenInbox = { tab = Tab.INBOX }, onOpenAset = { tab = Tab.ASET }, onOpenProfile = { settings = true })
                 tab == Tab.TRANSAKSI -> TransactionsScreen(pad, onOpen = { txDetail = it })
                 tab == Tab.INBOX -> InboxScreen(pad)
@@ -97,6 +125,12 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
                 else -> ComingNext(pad, tab.label)
             }
         }
-        if (adding) AddSheet(onDismiss = { adding = false }, onPick = { if (it in setOf("pengeluaran", "pemasukan", "transfer")) entry = it })
+        if (adding) AddSheet(onDismiss = { adding = false }, onPick = {
+            when (it) {
+                "pengeluaran", "pemasukan", "transfer" -> entry = it
+                "nota" -> screen = "nota"
+                "bagi" -> runCatching { activity.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(Settings(activity).serverUrl.trimEnd('/') + "/bagi/baru"))) } // split editor not built natively yet
+            }
+        })
     }
 }
