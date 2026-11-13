@@ -4,6 +4,9 @@ package id.glideslope.app.ui
 
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
@@ -114,10 +117,11 @@ fun InboxScreen(pad: PaddingValues) {
     val accountOf = accounts.associateBy { it.id }
     val categoryOf = categories.associateBy { it.id }
 
+    fun needsEdit(tx: TxEntity, cat: String? = tx.categoryId, acc: String? = tx.accountId) =
+        (tx.kind == "expense" && cat == null) || accountOf[acc]?.isSystem != false
+
     fun confirm(tx: TxEntity, cat: String? = tx.categoryId, acc: String? = tx.accountId) {
-        val needsCategory = tx.kind == "expense" && cat == null
-        val needsAccount = accountOf[acc]?.isSystem != false
-        if (needsCategory || needsAccount) { editing = tx; return }
+        if (needsEdit(tx, cat, acc)) { editing = tx; return }
         view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
         scope.launch { writes.confirmReview(tx, cat, acc) }
     }
@@ -158,6 +162,8 @@ fun InboxScreen(pad: PaddingValues) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp)) {
             SwipeCard(
                 key = current.id,
+                // a confirm that still needs a category or account opens the sheet and the card springs back instead of flying off
+                canConfirm = { !needsEdit(current).also { if (it) editing = current } },
                 onConfirm = { confirm(current) },
                 onSkip = { skipped = skipped + current.id },
             ) {
@@ -209,33 +215,42 @@ private fun TextAction(label: String, modifier: Modifier, onClick: () -> Unit) {
     }
 }
 
-/** Drag past 80 dp to act (PRD 4.4); the same actions are exposed to TalkBack as custom actions. */
+/**
+ * Drag past 80 dp (or fling) to act (PRD 4.4); the same actions are exposed to TalkBack as custom actions.
+ * The settle animation runs in its own coroutine, so a new touch never leaves the card stranded half-way: the next drag cancels it
+ * and whichever gesture ends last decides where the card goes (off screen after the action, otherwise back to the middle).
+ */
 @Composable
-private fun SwipeCard(key: String, onConfirm: () -> Unit, onSkip: () -> Unit, content: @Composable () -> Unit) {
+private fun SwipeCard(key: String, canConfirm: () -> Boolean, onConfirm: () -> Unit, onSkip: () -> Unit, content: @Composable () -> Unit) {
     val scope = rememberCoroutineScope()
     val offset = remember(key) { Animatable(0f) }
-    val threshold = with(LocalDensity.current) { 80.dp.toPx() }
+    val density = LocalDensity.current
+    val threshold = with(density) { 80.dp.toPx() }
+    val fling = with(density) { 900.dp.toPx() }
+    val exit = with(density) { 480.dp.toPx() }
     Box(
         Modifier
-            .offset { IntOffset(offset.value.roundToInt(), 0) }
-            .rotate(offset.value / 60f)
+            .graphicsLayer { translationX = offset.value; rotationZ = (offset.value / 60f).coerceIn(-12f, 12f) }
             .draggable(
                 orientation = Orientation.Horizontal,
-                state = rememberDraggableState { d -> scope.launch { offset.snapTo(offset.value + d) } },
-                onDragStopped = {
+                state = rememberDraggableState { d ->
+                    // UNDISPATCHED: the new position is applied before the next delta is read, so frames never reorder
+                    scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) { offset.snapTo(offset.value + d) }
+                },
+                onDragStopped = { velocity ->
                     val v = offset.value
-                    when {
-                        v > threshold -> { offset.animateTo(1200f); onConfirm() }
-                        v < -threshold -> { offset.animateTo(-1200f); onSkip() }
+                    scope.launch {
+                        when {
+                            (v > threshold || velocity > fling) && v > 0 && canConfirm() -> { offset.animateTo(exit, tween(180)); onConfirm() }
+                            (v < -threshold || velocity < -fling) && v < 0 -> { offset.animateTo(-exit, tween(180)); onSkip() }
+                            else -> offset.animateTo(0f, spring(dampingRatio = 0.8f, stiffness = 600f))
+                        }
                     }
-                    // the card comes back unless the item left the queue (a new key gives a fresh card);
-                    // e.g. a confirm that first needs a category opens the sheet with the card in place
-                    offset.animateTo(0f)
                 },
             )
             .semantics {
                 customActions = listOf(
-                    CustomAccessibilityAction("Konfirmasi") { onConfirm(); true },
+                    CustomAccessibilityAction("Konfirmasi") { if (canConfirm()) onConfirm(); true },
                     CustomAccessibilityAction("Lewati") { onSkip(); true },
                 )
             },
