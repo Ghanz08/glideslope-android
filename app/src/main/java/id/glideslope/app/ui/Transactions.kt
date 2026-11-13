@@ -6,6 +6,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -77,6 +80,9 @@ fun TransactionsScreen(pad: PaddingValues, onOpen: (String) -> Unit) {
     val items by remember { Db.get(ctx).sync().recent(1000) }.collectAsState(initial = emptyList())
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(0) }
+    // category name → tone_key from the synced categories, for the coloured tiles (the typed table keeps only id/name/kind)
+    val catRows by remember { Db.get(ctx).sync().rows("categories") }.collectAsState(initial = emptyList())
+    val tones = remember(catRows) { catRows.mapNotNull { runCatching { Json.parseToJsonElement(it).jsonObject }.getOrNull() }.associate { (it.text("name") ?: "") to it.text("tone_key") } }
     val shown = remember(items, query, filter) { items.filter { t ->
         when (filter) {
             1 -> t.kind == "expense" || t.kind == "fee"
@@ -112,7 +118,7 @@ fun TransactionsScreen(pad: PaddingValues, onOpen: (String) -> Unit) {
                 GsCard(Modifier.padding(horizontal = 16.dp), padding = PaddingValues(vertical = 4.dp)) {
                     list.forEachIndexed { i, t ->
                         if (i > 0) Box(Modifier.fillMaxWidth().padding(start = 76.dp).height(1.dp).background(Token.garis))
-                        TxLine(t) { onOpen(t.id) }
+                        TxLine(t, tones[t.categoryName]) { onOpen(t.id) }
                     }
                 }
             }
@@ -121,17 +127,23 @@ fun TransactionsScreen(pad: PaddingValues, onOpen: (String) -> Unit) {
 }
 
 @Composable
-private fun TxLine(t: TxListItem, onClick: () -> Unit) {
+private fun TxLine(t: TxListItem, toneKey: String?, onClick: () -> Unit) {
     val incoming = t.direction == "in"
     Row(
         Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        IconTile(
-            when (t.kind) { "transfer" -> Ic.arrows; else -> if (incoming) Ic.arrowDownLeft else Ic.arrowUpRight },
-            bg = if (incoming) Token.masuk.copy(alpha = 0.1f) else Token.isian, fg = if (incoming) Token.masuk else Token.teks, size = 44.dp,
-        )
+        if (t.kind == "transfer" || t.categoryName == null) IconTile(
+            if (t.kind == "transfer") Ic.arrows else if (incoming) Ic.arrowDownLeft else Ic.arrowUpRight,
+            bg = if (incoming) Token.masukLatar else Token.isian, fg = if (incoming) Token.masuk else Token.teks, size = 44.dp,
+        ) else {
+            // the category's tone, as the PWA's CategoryTile (an initial stands in for the icon)
+            val (bg, fg) = Token.tone(toneKey)
+            Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(bg), contentAlignment = Alignment.Center) {
+                Text(t.categoryName.take(1).uppercase(), color = fg, style = MaterialTheme.typography.titleMedium)
+            }
+        }
         Column(Modifier.weight(1f)) {
             Text(t.merchantRaw ?: t.categoryName ?: "Tanpa keterangan", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight(600)), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
@@ -149,7 +161,7 @@ private fun TxLine(t: TxListItem, onClick: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TxDetailScreen(id: String, onBack: () -> Unit) {
+fun TxDetailScreen(id: String, onBack: () -> Unit, onSplit: (String) -> Unit = {}) {
     val ctx = LocalContext.current
     val dao = remember { Db.get(ctx).sync() }
     val writes = remember { Writes(ctx) }
@@ -204,6 +216,11 @@ fun TxDetailScreen(id: String, onBack: () -> Unit) {
             }
             if (t.deletedAt == null) {
                 if (t.kind != "transfer") OutlinedButton(onClick = { editing = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Ubah") }
+                if (t.kind == "expense" && !t.pending) {
+                    val sw = rememberWriter()
+                    sw.message?.let { InfoBanner(it, warning = true) }
+                    OutlinedButton(enabled = !sw.busy, onClick = { startSplitFromTransaction(sw, t.id, onSplit) }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Bagi tagihan") }
+                }
                 OutlinedButton(
                     onClick = { scope.launch { writes.deleteTx(t) } },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).semantics { contentDescription = "Hapus transaksi" },

@@ -80,6 +80,7 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
         val back = {
             when {
                 dest.startsWith("nota/") -> screen = "nota" // from the review back to the scanner
+                dest.startsWith("aset/") || dest.startsWith("bagi") -> screen = null
                 dest == "nota" -> screen = null
                 else -> { screen = null; settings = true } // from a Lainnya screen back to the hub
             }
@@ -95,15 +96,20 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
                 dest == "label" -> LabelsScreen(onBack = back)
                 dest == "sumber" -> SourcesScreen(onBack = back)
                 dest == "notifikasi" -> ForwarderPage(onBack = back)
+                dest == "akun" -> AccountsScreen(onBack = back)
+                dest == "pengaturan" -> SettingsScreen(onBack = back)
+                dest == "bagi" -> SplitStartScreen(onBack = { screen = null }, onOpen = { screen = "bagi/$it" })
+                dest.startsWith("bagi/") -> SplitScreen(dest.removePrefix("bagi/"), onBack = { screen = null; tab = Tab.TRANSAKSI })
+                dest.startsWith("aset/") -> AssetDetailScreen(dest.removePrefix("aset/"), onBack = { screen = null })
                 dest == "nota" -> ScanScreen(onBack = back, onOpen = { screen = "nota/$it" })
-                dest.startsWith("nota/") -> ReceiptReviewScreen(dest.removePrefix("nota/"), onBack = back, onDone = { screen = null; tab = Tab.TRANSAKSI })
+                dest.startsWith("nota/") -> ReceiptReviewScreen(dest.removePrefix("nota/"), onBack = back, onDone = { screen = null; tab = Tab.TRANSAKSI }, onSplit = { screen = "bagi/$it" })
             }
         }
         return
     }
     txDetail?.let { id ->
         BackHandler { txDetail = null }
-        ProvidePrivacy { TxDetailScreen(id, onBack = { txDetail = null }) }
+        ProvidePrivacy { TxDetailScreen(id, onBack = { txDetail = null }, onSplit = { txDetail = null; screen = "bagi/$it" }) }
         return
     }
     entry?.let { kind ->
@@ -121,7 +127,7 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
                 tab == Tab.BERANDA -> HomeScreen(pad, onOpenInbox = { tab = Tab.INBOX }, onOpenAset = { tab = Tab.ASET }, onOpenProfile = { settings = true })
                 tab == Tab.TRANSAKSI -> TransactionsScreen(pad, onOpen = { txDetail = it })
                 tab == Tab.INBOX -> InboxScreen(pad)
-                tab == Tab.ASET -> AssetsScreen(pad)
+                tab == Tab.ASET -> AssetsScreen(pad, onOpenAsset = { screen = "aset/$it" }, onAccounts = { screen = "akun" })
                 else -> ComingNext(pad, tab.label)
             }
         }
@@ -129,7 +135,7 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
             when (it) {
                 "pengeluaran", "pemasukan", "transfer" -> entry = it
                 "nota" -> screen = "nota"
-                "bagi" -> runCatching { activity.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(Settings(activity).serverUrl.trimEnd('/') + "/bagi/baru"))) } // split editor not built natively yet
+                "bagi" -> screen = "bagi"
             }
         })
     }

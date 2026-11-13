@@ -128,7 +128,7 @@ fun ScanScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
 private fun JsonObject.numText(k: String) = long(k)?.toString().orEmpty()
 
 @Composable
-fun ReceiptReviewScreen(id: String, onBack: () -> Unit, onDone: () -> Unit) {
+fun ReceiptReviewScreen(id: String, onBack: () -> Unit, onDone: () -> Unit, onSplit: (String) -> Unit = {}) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     RemoteScreen("Tinjau nota", "/api/v1/layar/nota/$id", onBack) { data, reload ->
@@ -178,6 +178,20 @@ fun ReceiptReviewScreen(id: String, onBack: () -> Unit, onDone: () -> Unit) {
             (r.long("service_charge") ?: 0).takeIf { it > 0 }?.let { LineRow("Biaya layanan", value = rupiah(it)) }
             (r.long("tax_amount") ?: 0).takeIf { it > 0 }?.let { LineRow("Pajak", value = rupiah(it)) }
             LineRow("Total", value = rupiah(r.long("total") ?: 0))
+        }
+        if (status == "confirmed" || status == "extracted") {
+            OutlinedButton(enabled = !working, onClick = {
+                working = true
+                scope.launch {
+                    val api = Api(Settings(ctx), SessionStore(ctx))
+                    when (val res = api.send("POST", "/api/v1/splits", buildJsonObject { put("nota", id) }.toString())) {
+                        is ApiResult.Ok -> (res.value as? JsonObject)?.text("id")?.let(onSplit)
+                        is ApiResult.Fail -> message = res.message
+                        ApiResult.Offline -> message = "Tidak ada koneksi."
+                    }
+                    working = false
+                }
+            }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Bagi tagihan") }
         }
         if (status != "confirmed") {
             GsCard {

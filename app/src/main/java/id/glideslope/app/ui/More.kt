@@ -5,6 +5,7 @@ package id.glideslope.app.ui
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,27 +47,30 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 private fun categoryNames(categories: List<JsonObject>) = categories.associate { it.text("id").orEmpty() to (it.text("name") ?: "Tanpa kategori") }
-private fun money(o: JsonObject, k: String) = o.long(k) ?: 0L
+internal fun money(o: JsonObject, k: String) = o.long(k) ?: 0L
 
 // ---------------------------------------------------------------- Anggaran (F-06.6)
 
 @Composable
-fun BudgetScreen(onBack: () -> Unit) = RemoteScreen("Anggaran", "/api/v1/layar/anggaran", onBack, "Batas per kategori dari runway") { data, _ ->
+fun BudgetScreen(onBack: () -> Unit) = RemoteScreen("Anggaran", "/api/v1/layar/anggaran", onBack, "Ketuk kategori untuk memakai angka sendiri") { data, reload ->
     val o = data.obj() ?: return@RemoteScreen
     val names = categoryNames(o.list("categories"))
     val rows = o.list("rows")
+    val w = rememberWriter()
+    var editing by remember { mutableStateOf<JsonObject?>(null) }
     GsCard {
         Text("Anggaran bulan ini", style = MaterialTheme.typography.bodyMedium, color = Token.teksRedup)
         Text(o.long("allowance")?.let { rupiah(it) } ?: "Belum bisa dihitung", style = MaterialTheme.typography.headlineSmall)
         Text("Terpakai ${rupiah(money(o, "month_spend"))}", style = MaterialTheme.typography.bodyMedium, color = Token.teksRedup)
     }
+    w.message?.let { InfoBanner(it) }
     if (rows.isEmpty()) GsCard { Text("Belum ada pengeluaran bulan ini untuk dibandingkan.", color = Token.teksRedup) }
     else GsCard(padding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
         rows.forEachIndexed { i, r ->
             if (i > 0) HorizontalDivider(color = Token.garis)
             val pct = r.dbl("pct") ?: 0.0
             val color = when { pct >= 100 -> Token.galat; pct >= 80 -> Token.peringatan; else -> Token.aksenTeks }
-            Column(Modifier.padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(Modifier.clickable { editing = r }.padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(names[r.text("category_id")] ?: "Tanpa kategori", style = MaterialTheme.typography.bodyLarge)
                     Text("${rupiah(money(r, "spent"))} / ${rupiah(money(r, "budget"))}", style = MaterialTheme.typography.bodyMedium, color = Token.teksRedup)
@@ -76,12 +80,18 @@ fun BudgetScreen(onBack: () -> Unit) = RemoteScreen("Anggaran", "/api/v1/layar/a
             }
         }
     }
+    editing?.let { r ->
+        val fields = listOf(FieldSpec("amount", "Anggaran per bulan", Kind.Money, if (r.flag("auto")) "" else money(r, "budget").toString(), "Kosongkan untuk kembali otomatis"))
+        FormDialog(names[r.text("category_id")] ?: "Anggaran", fields, busy = w.busy, onDismiss = { editing = null }) { v ->
+            w.call("PUT", "/api/v1/budgets/${r.text("category_id")}", bodyOf(fields, v).toString(), "Anggaran disimpan.") { editing = null; reload() }
+        }
+    }
 }
 
 // ---------------------------------------------------------------- Langganan (F-11)
 
 @Composable
-fun SubscriptionsScreen(onBack: () -> Unit) = RemoteScreen("Langganan", "/api/v1/layar/langganan", onBack, "Terdeteksi otomatis dari email dan notifikasi") { data, _ ->
+fun SubscriptionsScreen(onBack: () -> Unit) = RemoteScreen("Langganan", "/api/v1/layar/langganan", onBack, "Terdeteksi otomatis dari email dan notifikasi") { data, reload ->
     val subs = data.obj()?.list("subscriptions").orEmpty()
     val active = subs.filter { it.text("status") == "active" }
     val suggested = subs.filter { it.text("status") == "suggested" }
@@ -89,16 +99,43 @@ fun SubscriptionsScreen(onBack: () -> Unit) = RemoteScreen("Langganan", "/api/v1
         val a = money(s, "avg_amount")
         when (s.text("period")) { "yearly" -> a / 12; "weekly" -> a * 52 / 12; else -> a }
     }
+    val w = rememberWriter()
+    var adding by remember { mutableStateOf(false) }
+    var acting by remember { mutableStateOf<JsonObject?>(null) }
     GsCard {
         Text("Total langganan aktif", style = MaterialTheme.typography.bodyMedium, color = Token.teksRedup)
         Text("${rupiah(perMonth)} /bln", style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { adding = true }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("+ Tambah") }
+            OutlinedButton(enabled = !w.busy, onClick = { w.call("POST", "/api/v1/subscriptions/detect", okText = "Pemeriksaan selesai.") { reload() } }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Periksa sekarang") }
+        }
     }
-    SubsList("Aktif · ${active.size}", active, "Belum ada langganan aktif.")
-    if (suggested.isNotEmpty()) SubsList("Usulan · ${suggested.size}", suggested, "")
+    w.message?.let { InfoBanner(it) }
+    SubsList("Aktif · ${active.size}", active, "Belum ada langganan aktif.") { acting = it }
+    if (suggested.isNotEmpty()) SubsList("Usulan · ${suggested.size}", suggested, "") { acting = it }
+    if (adding) {
+        val fields = listOf(
+            FieldSpec("name", "Nama layanan"), FieldSpec("amount", "Jumlah", Kind.Money),
+            FieldSpec("period", "Periode", Kind.Choice(listOf("monthly" to "Bulanan", "yearly" to "Tahunan")), "monthly"),
+            FieldSpec("next_on", "Tagihan berikutnya", Kind.Date, java.time.LocalDate.now().plusMonths(1).toString()),
+        )
+        FormDialog("Tambah langganan", fields, busy = w.busy, onDismiss = { adding = false }) { v ->
+            w.call("POST", "/api/v1/subscriptions", bodyOf(fields, v).toString(), "Langganan ditambahkan.") { adding = false; reload() }
+        }
+    }
+    acting?.let { s ->
+        val id = s.text("id")
+        val opts = if (s.text("status") == "suggested") listOf("approve" to "Setujui", "dismiss" to "Tolak") else listOf("stop" to "Hentikan langganan")
+        PickDialog(s.obj("merchants")?.text("display_name") ?: "Langganan", opts, onDismiss = { acting = null }) { act ->
+            acting = null
+            w.call("POST", "/api/v1/subscriptions/$id/$act", okText = "Tersimpan.") { reload() }
+        }
+    }
 }
 
 @Composable
-private fun SubsList(title: String, subs: List<JsonObject>, empty: String) {
+private fun SubsList(title: String, subs: List<JsonObject>, empty: String, onClick: (JsonObject) -> Unit) {
     GsCard(padding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 12.dp)) {
         Text(title, style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp))
         if (subs.isEmpty()) Text(empty, color = Token.teksRedup, modifier = Modifier.padding(vertical = 12.dp))
@@ -106,7 +143,7 @@ private fun SubsList(title: String, subs: List<JsonObject>, empty: String) {
             if (i > 0) HorizontalDivider(color = Token.garis)
             val name = s.obj("merchants")?.text("display_name") ?: "Langganan"
             val period = when (s.text("period")) { "yearly" -> "Tahunan"; "weekly" -> "Mingguan"; else -> "Bulanan" }
-            LineRow(name, "$period · berikutnya ${fmtDate(s.text("next_expected_on"))}", rupiah(money(s, "avg_amount")))
+            LineRow(name, "$period · berikutnya ${fmtDate(s.text("next_expected_on"))}", rupiah(money(s, "avg_amount")), onClick = { onClick(s) })
         }
     }
 }
@@ -182,25 +219,57 @@ private fun formatRupiahPlain(n: Long) = id.glideslope.core.formatRupiah(n)
 // ---------------------------------------------------------------- Rencana pengeluaran (F-06.3)
 
 @Composable
-fun PlannedScreen(onBack: () -> Unit) = RemoteScreen("Rencana pengeluaran", "/api/v1/layar/rencana", onBack, "Biaya besar yang sudah kamu tahu") { data, _ ->
+fun PlannedScreen(onBack: () -> Unit) = RemoteScreen("Rencana pengeluaran", "/api/v1/layar/rencana", onBack, "Biaya besar yang sudah kamu tahu") { data, reload ->
     val o = data.obj() ?: return@RemoteScreen
     val today = o.text("today") ?: ""
     val occ = o.list("occurrences").filter { !it.flag("paid") && (it.text("date") ?: "") >= today }.take(12)
+    val planned = o.list("planned")
+    val categories = o.list("categories")
+    val w = rememberWriter()
+    var form by remember { mutableStateOf<JsonObject?>(null) } // an existing plan, or an empty object for a new one
+    var adding by remember { mutableStateOf(false) }
+    var acting by remember { mutableStateOf<JsonObject?>(null) }
+    Button(onClick = { adding = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("+ Tambah rencana") }
+    w.message?.let { InfoBanner(it) }
     GsCard(padding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 12.dp)) {
         Text("Berikutnya", style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp))
         if (occ.isEmpty()) Text("Belum ada rencana yang akan datang.", color = Token.teksRedup, modifier = Modifier.padding(vertical = 12.dp))
         occ.forEachIndexed { i, r ->
             if (i > 0) HorizontalDivider(color = Token.garis)
-            LineRow(r.text("label") ?: "Rencana", fmtDate(r.text("date")), rupiah(money(r, "amount")))
+            LineRow(r.text("label") ?: "Rencana", fmtDate(r.text("date")), rupiah(money(r, "amount")), onClick = {
+                val id = r.text("planned_id")
+                if (id != null) w.call("POST", "/api/v1/planned/$id/paid", """{"occurrence":"${r.text("date")}"}""", "Ditandai sudah dibayar.") { reload() }
+            })
         }
+        if (occ.isNotEmpty()) Text("Ketuk untuk menandai sudah dibayar.", style = MaterialTheme.typography.bodySmall, color = Token.teksRedup)
     }
-    val planned = o.list("planned")
     GsCard(padding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 12.dp)) {
         Text("Semua rencana · ${planned.size}", style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp))
         planned.forEachIndexed { i, p ->
             if (i > 0) HorizontalDivider(color = Token.garis)
             val every = p.long("repeat_months")?.let { "tiap $it bulan" } ?: "sekali"
-            LineRow(p.text("label") ?: "Rencana", "${fmtDate(p.text("due_on"))} · $every", rupiah(money(p, "amount")))
+            LineRow(p.text("label") ?: "Rencana", "${fmtDate(p.text("due_on"))} · $every", rupiah(money(p, "amount")), onClick = { acting = p })
+        }
+    }
+    val catOptions = listOf("" to "Tanpa kategori") + categories.map { it.text("id").orEmpty() to (it.text("name") ?: "") }
+    fun fields(p: JsonObject?) = listOf(
+        FieldSpec("label", "Nama rencana", initial = p?.text("label").orEmpty()), FieldSpec("amount", "Jumlah", Kind.Money, p?.long("amount")?.toString().orEmpty()),
+        FieldSpec("due_on", "Tanggal", Kind.Date, p?.text("due_on") ?: java.time.LocalDate.now().plusMonths(1).toString()),
+        FieldSpec("repeat_months", "Ulangi tiap … bulan (1–12)", Kind.Number, p?.long("repeat_months")?.toString().orEmpty(), "Kosongkan bila sekali"),
+        FieldSpec("repeat_until", "Ulangi sampai", Kind.Date, p?.text("repeat_until").orEmpty()),
+        FieldSpec("category_id", "Kategori", Kind.Choice(catOptions), p?.text("category_id").orEmpty()),
+    )
+    if (adding || form != null) {
+        val p = form
+        val fs = fields(p)
+        FormDialog(if (p == null) "Tambah rencana" else "Ubah rencana", fs, busy = w.busy, onDismiss = { adding = false; form = null }) { v ->
+            w.call(if (p == null) "POST" else "PATCH", if (p == null) "/api/v1/planned" else "/api/v1/planned/${p.text("id")}", bodyOf(fs, v).toString(), "Rencana disimpan.") { adding = false; form = null; reload() }
+        }
+    }
+    acting?.let { p ->
+        PickDialog(p.text("label") ?: "Rencana", listOf("ubah" to "Ubah", "hapus" to "Hapus semua"), onDismiss = { acting = null }) { act ->
+            acting = null
+            if (act == "ubah") form = p else w.call("DELETE", "/api/v1/planned/${p.text("id")}", okText = "Rencana dihapus.") { reload() }
         }
     }
 }
@@ -208,18 +277,24 @@ fun PlannedScreen(onBack: () -> Unit) = RemoteScreen("Rencana pengeluaran", "/ap
 // ---------------------------------------------------------------- Label (F-11.3)
 
 @Composable
-fun LabelsScreen(onBack: () -> Unit) = RemoteScreen("Label", "/api/v1/layar/label", onBack, "Kelompokkan pengeluaran sesukamu") { data, _ ->
+fun LabelsScreen(onBack: () -> Unit) = RemoteScreen("Label", "/api/v1/layar/label", onBack, "Kelompokkan pengeluaran sesukamu") { data, reload ->
     val labels = data.obj()?.list("labels").orEmpty()
+    val w = rememberWriter()
+    var form by remember { mutableStateOf<JsonObject?>(null) }
+    var adding by remember { mutableStateOf(false) }
+    var acting by remember { mutableStateOf<JsonObject?>(null) }
+    Button(onClick = { adding = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("+ Label baru") }
+    w.message?.let { InfoBanner(it) }
     if (labels.isEmpty()) GsCard { Text("Belum ada label.", color = Token.teksRedup) }
     labels.forEach { l ->
         val spent = l.list("transaction_labels").map { it.obj("transactions") }.filter {
             it != null && it.text("kind") == "expense" && it.text("status") != "ignored" && it.text("deleted_at") == null
         }.sumOf { money(it!!, "amount") }
         val target = l.long("target_amount")
-        GsCard {
+        GsCard(onClick = { acting = l }) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(l.text("name") ?: "Label", style = MaterialTheme.typography.titleMedium)
-                if (l.flag("auto_one_off")) Text("Sekali jalan", style = MaterialTheme.typography.labelMedium, color = Token.teksRedup)
+                Text(if (l.text("archived_at") != null) "Diarsipkan" else if (l.flag("auto_one_off")) "Sekali jalan" else "", style = MaterialTheme.typography.labelMedium, color = Token.teksRedup)
             }
             Spacer(Modifier.height(4.dp))
             Text(rupiah(spent), style = MaterialTheme.typography.titleLarge)
@@ -228,6 +303,23 @@ fun LabelsScreen(onBack: () -> Unit) = RemoteScreen("Label", "/api/v1/layar/labe
                 Meter(spent.toDouble() / target, if (spent > target) Token.galat else Token.aksenTeks)
                 Text("Target ${rupiah(target)}", style = MaterialTheme.typography.bodySmall, color = Token.teksRedup)
             }
+        }
+    }
+    if (adding || form != null) {
+        val l = form
+        val fs = listOf(
+            FieldSpec("name", "Nama label", initial = l?.text("name").orEmpty()), FieldSpec("auto_one_off", "Tandai pengeluarannya sekali jalan", Kind.Toggle, if (l?.flag("auto_one_off") == true) "true" else "false"),
+            FieldSpec("target_amount", "Target (opsional)", Kind.Money, l?.long("target_amount")?.toString().orEmpty()),
+        )
+        FormDialog(if (l == null) "Label baru" else "Ubah label", fs, busy = w.busy, onDismiss = { adding = false; form = null }) { v ->
+            w.call(if (l == null) "POST" else "PATCH", if (l == null) "/api/v1/labels" else "/api/v1/labels/${l.text("id")}", bodyOf(fs, v).toString(), "Label disimpan.") { adding = false; form = null; reload() }
+        }
+    }
+    acting?.let { l ->
+        val archived = l.text("archived_at") != null
+        PickDialog(l.text("name") ?: "Label", listOf("ubah" to "Ubah", "arsip" to if (archived) "Pulihkan" else "Arsipkan"), onDismiss = { acting = null }) { act ->
+            acting = null
+            if (act == "ubah") form = l else w.call("POST", "/api/v1/labels/${l.text("id")}/archive", """{"archive":${!archived}}""", "Tersimpan.") { reload() }
         }
     }
 }
@@ -330,10 +422,15 @@ private fun WealthTab(k: JsonObject) {
 // ---------------------------------------------------------------- Sumber email (F-04)
 
 @Composable
-fun SourcesScreen(onBack: () -> Unit) = RemoteScreen("Sumber email", "/api/v1/layar/sumber", onBack, "Dari mana transaksi otomatis masuk") { data, _ ->
+fun SourcesScreen(onBack: () -> Unit) = RemoteScreen("Sumber email", "/api/v1/layar/sumber", onBack, "Dari mana transaksi otomatis masuk") { data, reload ->
     val o = data.obj() ?: return@RemoteScreen
+    val ctx = LocalContext.current
+    val w = rememberWriter()
     val g = o.obj("integration")
     val status = g?.text("status")
+    var adding by remember { mutableStateOf(false) }
+    var acting by remember { mutableStateOf<JsonObject?>(null) }
+    var bad by remember { mutableStateOf<JsonObject?>(null) }
     GsCard {
         Text("Gmail", style = MaterialTheme.typography.titleMedium)
         Text(
@@ -342,8 +439,19 @@ fun SourcesScreen(onBack: () -> Unit) = RemoteScreen("Sumber email", "/api/v1/la
         )
         g?.text("last_polled_at")?.let { Text("Terakhir dibaca ${fmtDate(it)}", style = MaterialTheme.typography.bodySmall, color = Token.teksRedup) }
         g?.text("last_error")?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Token.galat) }
-        if (status != "terhubung") Text("Hubungkan Gmail dari Glideslope di browser (Pengaturan → Sumber email).", style = MaterialTheme.typography.bodySmall, color = Token.teksRedup, modifier = Modifier.padding(top = 8.dp))
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (status != "terhubung") Button(onClick = {
+                // Google's consent screen needs a browser; the server's callback returns here once the owner is signed in on the web
+                ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Settings(ctx).serverUrl.trimEnd('/') + "/api/v1/gmail/connect")))
+            }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Hubungkan Gmail") }
+            else {
+                OutlinedButton(enabled = !w.busy, onClick = { w.call("POST", "/api/v1/backfill", okText = "Pembacaan email lama dimulai.") { reload() } }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Baca email lama") }
+                OutlinedButton(enabled = !w.busy, onClick = { w.call("POST", "/api/v1/gmail/disconnect", okText = "Gmail diputus.") { reload() } }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Putuskan") }
+            }
+        }
     }
+    w.message?.let { InfoBanner(it) }
     val counts = o.list("counts_30d").associateBy { it.text("source_id") }
     GsCard(padding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 12.dp)) {
         Text("Pengirim email", style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp))
@@ -353,16 +461,41 @@ fun SourcesScreen(onBack: () -> Unit) = RemoteScreen("Sumber email", "/api/v1/la
             LineRow(
                 s.text("label") ?: s.text("sender_address") ?: "Sumber",
                 "${s.text("sender_address")} · 30 hari: ${c?.long("ok") ?: 0} terbaca, ${c?.long("fail") ?: 0} gagal",
-                if (s.flag("enabled")) "Aktif" else "Mati", if (s.flag("enabled")) Token.masuk else Token.teksRedup,
+                if (s.flag("enabled")) "Aktif" else "Mati", if (s.flag("enabled")) Token.masuk else Token.teksRedup, onClick = { acting = s },
             )
         }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = { adding = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("+ Pengirim baru") }
     }
-    val bad = o.list("unreadable")
-    if (bad.isNotEmpty()) GsCard(padding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 12.dp)) {
-        Text("Email yang belum terbaca · ${bad.size}", style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp))
-        bad.forEachIndexed { i, e ->
+    val unreadable = o.list("unreadable")
+    if (unreadable.isNotEmpty()) GsCard(padding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 12.dp)) {
+        Text("Email yang belum terbaca · ${unreadable.size}", style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp))
+        unreadable.forEachIndexed { i, e ->
             if (i > 0) HorizontalDivider(color = Token.garis)
-            LineRow(e.text("subject") ?: "(tanpa judul)", "${e.text("sender")} · ${fmtDate(e.text("received_at"))}")
+            LineRow(e.text("subject") ?: "(tanpa judul)", "${e.text("sender")} · ${fmtDate(e.text("received_at"))}", onClick = { bad = e })
+        }
+    }
+    if (adding) {
+        val accounts = o.list("accounts").map { it.text("id").orEmpty() to (it.text("name") ?: "Akun") }
+        val fs = listOf(
+            FieldSpec("sender_address", "Alamat pengirim (mis. no-reply@bank.co.id)"), FieldSpec("label", "Nama"),
+            FieldSpec("default_account_id", "Akun bawaan", Kind.Choice(listOf("" to "Tidak ada") + accounts), ""),
+        )
+        FormDialog("Pengirim baru", fs, busy = w.busy, onDismiss = { adding = false }) { v ->
+            val body = JsonObject(bodyOf(fs, v) + ("parser_id" to kotlinx.serialization.json.JsonNull))
+            w.call("POST", "/api/v1/email-sources", body.toString(), "Pengirim ditambahkan.") { adding = false; reload() }
+        }
+    }
+    acting?.let { s ->
+        PickDialog(s.text("label") ?: "Pengirim", listOf("toggle" to if (s.flag("enabled")) "Matikan" else "Aktifkan"), onDismiss = { acting = null }) {
+            acting = null
+            w.call("POST", "/api/v1/email-sources/${s.text("id")}/toggle", """{"enabled":${!s.flag("enabled")}}""", "Tersimpan.") { reload() }
+        }
+    }
+    bad?.let { e ->
+        PickDialog(e.text("subject") ?: "Email", listOf("retry" to "Coba baca lagi", "ignore" to "Abaikan"), onDismiss = { bad = null }) { act ->
+            bad = null
+            w.call("POST", "/api/v1/ingest-events/${e.text("id")}/$act", okText = "Tersimpan.") { reload() }
         }
     }
 }

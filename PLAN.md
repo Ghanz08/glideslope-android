@@ -39,3 +39,5 @@ Semua 23 layar pemilik native; tidak ada tautan ke PWA kecuali sambung Gmail; of
 
 ## Catatan 2026-11-13
 Tema gelap + bilah bawah melayang; API Go; Scan nota dengan OCR di HP (ML Kit) + Tinjau nota; layar F, G (baca) dan Sumber email online; belum: tulis offline untuk anggaran/rencana/langganan/label, Bagi tagihan native, widget/FCM (J), uji di perangkat (tidak ada emulator di Mac ini).
+
+Update 2026-11-13 (malam): semua layar sudah native, termasuk tulis online untuk Anggaran, Langganan, Rencana, Label, Akun, Aset (detail, harga, beli, cairkan), Bagi tagihan, Sumber email, Pengaturan, ekspor. Tulis tetap online (tidak lewat outbox); offline-first hanya Tambah/Inbox/Transaksi. Belum diuji di perangkat.

@@ -3,6 +3,7 @@
 package id.glideslope.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,7 +61,7 @@ private val TYPE_LABEL = mapOf(
 )
 
 @Composable
-fun AssetsScreen(pad: PaddingValues) {
+fun AssetsScreen(pad: PaddingValues, onOpenAsset: (String) -> Unit = {}, onAccounts: () -> Unit = {}) {
     val ctx = LocalContext.current
     val dao = remember { Db.get(ctx).sync() }
     val summaryJson by dao.metaFlow("summary").collectAsState(initial = null)
@@ -76,7 +78,16 @@ fun AssetsScreen(pad: PaddingValues) {
         Modifier.fillMaxSize().padding(pad).statusBarsPadding().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        PageTitle("Aset")
+        val w = rememberWriter()
+        var adding by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+        PageTitle("Aset", action = { androidx.compose.material3.TextButton(onClick = { adding = true }) { Text("+ Aset", color = Token.aksenTeks) } })
+        w.message?.let { InfoBanner(it) }
+        if (adding) {
+            val fields = assetFields(null)
+            FormDialog("Tambah aset", fields, busy = w.busy, onDismiss = { adding = false }) { v ->
+                w.call("POST", "/api/v1/assets", bodyOf(fields, v).toString(), "Aset ditambahkan.") { adding = false; id.glideslope.app.sync.PullWorker.now(ctx) }
+            }
+        }
         if (s == null) { SkeletonCard(3); SkeletonCard(5); return@Column }
         if (s["accounts"] == null) {
             InfoBanner("Server Glideslope belum mengirim data aset. Perbarui server (deploy terbaru), lalu tarik ulang.", warning = true, action = "Tarik ulang", onAction = { id.glideslope.app.sync.PullWorker.now(ctx) })
@@ -116,7 +127,7 @@ fun AssetsScreen(pad: PaddingValues) {
                 }
             }
         }
-        SectionHeader("Rekening & wallet")
+        SectionHeader("Rekening & wallet", "Kelola", onAccounts)
         GsCard(padding = PaddingValues(vertical = 4.dp)) {
             accounts.forEachIndexed { i, a ->
                 if (i > 0) HorizontalDivider(color = Token.garis, modifier = Modifier.padding(start = 76.dp))
@@ -128,7 +139,7 @@ fun AssetsScreen(pad: PaddingValues) {
             GsCard(padding = PaddingValues(vertical = 4.dp)) {
                 assets.sortedByDescending { it.long("value") ?: 0 }.forEachIndexed { i, a ->
                     if (i > 0) HorizontalDivider(color = Token.garis, modifier = Modifier.padding(start = 16.dp))
-                    AssetLine(a)
+                    AssetLine(a, onClick = { a.text("id")?.let(onOpenAsset) })
                 }
             }
         }
@@ -163,11 +174,11 @@ private fun AccountLine(a: JsonObject) {
 }
 
 @Composable
-private fun AssetLine(a: JsonObject) {
+private fun AssetLine(a: JsonObject, onClick: () -> Unit) {
     val value = a.long("value") ?: 0
     val cost = a.long("cost_basis")
     val gain = cost?.let { value - it }
-    Row(Modifier.fillMaxWidth().heightIn(min = 68.dp).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).heightIn(min = 68.dp).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(a.text("name") ?: "", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight(600)), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(

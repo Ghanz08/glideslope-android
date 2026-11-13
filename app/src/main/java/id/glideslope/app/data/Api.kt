@@ -128,6 +128,19 @@ class Api(private val settings: Settings, private val sessions: SessionStore) {
         return authedAny { Request.Builder().url(url("/api/v1/receipts")).post(form).header("authorization", "Bearer $it").build() }
     }
 
+    /** A POST whose answer is a file (the export ZIP). */
+    suspend fun download(path: String, body: String): ApiResult<ByteArray> {
+        repeat(2) { attempt ->
+            val token = sessions.get()?.access_token ?: return ApiResult.Fail(401, "TANPA_SESI", "Silakan masuk dulu.")
+            val res = withContext(Dispatchers.IO) {
+                try { http.newCall(post(path, body, token)).execute().use { Triple(it.code, it.body.bytes(), it.header("content-type").orEmpty()) } } catch (_: IOException) { null }
+            } ?: return ApiResult.Offline
+            if (res.first == 401 && attempt == 0 && refresh()) return@repeat
+            return if (res.first in 200..299) ApiResult.Ok(res.second) else fail(res.first, String(res.second))
+        }
+        return ApiResult.Fail(401, "TANPA_SESI", "Sesi berakhir. Masuk lagi.")
+    }
+
     suspend fun logout() {
         sessions.get()?.let { send(post("/api/v1/auth/keluar", json.encodeToString(mapOf("refresh_token" to it.refresh_token)), it.access_token)) }
         sessions.set(null)
