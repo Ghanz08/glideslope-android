@@ -206,7 +206,7 @@ private fun AuthField(
 /** Six boxes over one real input (paste and SMS autofill keep working); the active box gets the accent border and ring. */
 @Composable
 private fun OtpBoxes(code: String, onChange: (String) -> Unit, error: Boolean) {
-    val focus = androidx.compose.ui.focus.FocusRequester()
+    val focus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
     androidx.compose.runtime.LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     androidx.compose.foundation.text.BasicTextField(
         code, { onChange(it.filter(Char::isDigit).take(6)) }, singleLine = true,
