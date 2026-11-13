@@ -133,7 +133,7 @@ fun HomeScreen(pad: PaddingValues, onOpenInbox: () -> Unit, onOpenAset: () -> Un
         syncedAt?.toLongOrNull()?.let {
             Text("Data per ${jamFmt.format(Instant.ofEpochMilli(it))} WIB", style = MaterialTheme.typography.bodySmall, color = Token.teksPelan, modifier = Modifier.align(Alignment.CenterHorizontally))
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(barClearance()))
     }
 }
 

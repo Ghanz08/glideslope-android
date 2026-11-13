@@ -2,6 +2,9 @@
 package id.glideslope.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import dev.chrisbanes.haze.hazeSource
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -118,18 +121,21 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
         return
     }
     ProvidePrivacy {
-        Scaffold(
-            containerColor = Token.latar,
-            bottomBar = { if (!settings) BottomBar(tab, reviewCount, onTab = { tab = it }, onAdd = { adding = true }) },
-        ) { pad ->
+        // the content fills the screen and scrolls behind the floating bar (as the PWA); screens add barClearance() to their last row
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().background(Token.latar)) {
+            val pad = PaddingValues(0.dp)
+            val haze = remember { dev.chrisbanes.haze.HazeState() }
+            androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().hazeSource(haze)) {
             when {
                 settings -> SettingsHub(pad, onBack = { settings = false }, onOpen = { screen = it }, onSignedOut = onSignedOut)
                 tab == Tab.BERANDA -> HomeScreen(pad, onOpenInbox = { tab = Tab.INBOX }, onOpenAset = { tab = Tab.ASET }, onOpenProfile = { settings = true })
                 tab == Tab.TRANSAKSI -> TransactionsScreen(pad, onOpen = { txDetail = it })
-                tab == Tab.INBOX -> InboxScreen(pad)
+                tab == Tab.INBOX -> InboxScreen(PaddingValues(bottom = barClearance()))
                 tab == Tab.ASET -> AssetsScreen(pad, onOpenAsset = { screen = "aset/$it" }, onAccounts = { screen = "akun" })
                 else -> ComingNext(pad, tab.label)
             }
+            }
+            if (!settings) androidx.compose.foundation.layout.Box(Modifier.align(Alignment.BottomCenter)) { BottomBar(tab, reviewCount, haze, onTab = { tab = it }, onAdd = { adding = true }) }
         }
         if (adding) AddSheet(onDismiss = { adding = false }, onPick = {
             when (it) {

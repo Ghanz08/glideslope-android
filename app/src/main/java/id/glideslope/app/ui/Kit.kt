@@ -12,6 +12,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import dev.chrisbanes.haze.blur.hazeBlur
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -248,20 +252,39 @@ enum class Tab(val label: String, val icon: ImageVector) {
     BERANDA("Beranda", Ic.home), INBOX("Inbox", Ic.inbox), TRANSAKSI("Transaksi", Ic.list), ASET("Aset", Ic.wallet)
 }
 
+/** The bar's glass: a 12 dp blur of what scrolls underneath, tinted with --color-kaca (rebuilt only when the theme changes). */
+@Composable
+private fun glassStyle(): dev.chrisbanes.haze.blur.HazeBlurStyle {
+    val dark = Token.dark
+    return remember(dark) {
+        dev.chrisbanes.haze.blur.HazeBlurStyle {
+            blurRadius(12.dp); noiseFactor(0f); backgroundColor(Token.latar)
+            colorEffects(listOf(dev.chrisbanes.haze.blur.HazeColorEffect.tint(Token.kaca)))
+        }
+    }
+}
+
+/** Room the floating bar takes at the bottom (22 dp "+" overhang + 64 dp bar + 12 dp gap + system nav inset), so the last row can scroll clear of it. */
+@Composable
+fun barClearance(): Dp = 106.dp + androidx.compose.foundation.layout.WindowInsets.Companion.navigationBars.asPaddingValues().calculateBottomPadding()
+
 /**
  * F-16.4 (nav.tsx BottomNav): a floating pill 16 dp from the sides, 12 dp above the bottom, 64 dp high, max 480 dp wide; five equal cells
  * with the 60 dp "+" in the middle, raised 22 dp above the bar's top edge. Android has no backdrop blur here, so the glass takes the PWA's
  * solid fallback (surface fill, hairline border).
  */
 @Composable
-fun BottomBar(current: Tab, inboxCount: Int, onTab: (Tab) -> Unit, onAdd: () -> Unit) {
+fun BottomBar(current: Tab, inboxCount: Int, haze: dev.chrisbanes.haze.HazeState, onTab: (Tab) -> Unit, onAdd: () -> Unit) {
     Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 12.dp), contentAlignment = Alignment.BottomCenter) {
         val shape = RoundedCornerShape(50)
         Box(Modifier.widthIn(max = 480.dp).fillMaxWidth().padding(top = 22.dp)) {
             Row(
                 Modifier.fillMaxWidth().height(64.dp)
                     .shadow(12.dp, shape, ambientColor = Token.teks.copy(alpha = 0.14f), spotColor = Token.teks.copy(alpha = 0.14f))
-                    .clip(shape).background(Token.permukaanTinggi.copy(alpha = 0.96f)).border(1.dp, Token.kacaGaris, shape).padding(horizontal = 8.dp),
+                    .clip(shape)
+                    // the glass: what scrolls under the bar is blurred (12 dp, as --blur-kaca) and tinted with --color-kaca
+                    .hazeBlur(dev.chrisbanes.haze.HazeInput.Sources(haze), glassStyle())
+                    .border(1.dp, Token.kacaGaris, shape).padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 NavSlot(Tab.BERANDA, current, 0, onTab)

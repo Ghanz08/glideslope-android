@@ -52,6 +52,8 @@ dependencies {
     implementation(libs.androidx.biometric)
     implementation(libs.mlkit.text) // bundled Latin model: reads receipts on the phone, offline
     implementation(libs.androidx.exifinterface)
+    implementation(libs.haze)
+    implementation(libs.haze.blur) // backdrop blur for the floating bottom bar (the PWA's glass)
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)

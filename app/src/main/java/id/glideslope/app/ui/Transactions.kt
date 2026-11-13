@@ -93,7 +93,7 @@ fun TransactionsScreen(pad: PaddingValues, onOpen: (String) -> Unit) {
         } && (query.isBlank() || listOfNotNull(t.merchantRaw, t.note, t.categoryName, t.accountName).any { it.contains(query.trim(), ignoreCase = true) })
     } }
     val days = remember(shown) { shown.groupBy { wib(it.occurredAt)?.toLocalDate() ?: LocalDate.MIN } }
-    LazyColumn(Modifier.fillMaxSize().padding(pad).statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize().padding(pad).statusBarsPadding(), contentPadding = PaddingValues(bottom = barClearance())) {
         item { Box(Modifier.padding(16.dp)) { PageTitle("Transaksi") } }
         item {
             OutlinedTextField(

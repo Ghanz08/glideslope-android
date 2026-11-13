@@ -143,7 +143,7 @@ fun AssetsScreen(pad: PaddingValues, onOpenAsset: (String) -> Unit = {}, onAccou
                 }
             }
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(barClearance()))
     }
 }
 
