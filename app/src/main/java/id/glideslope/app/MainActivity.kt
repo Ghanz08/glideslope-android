@@ -1,7 +1,6 @@
 package id.glideslope.app
 
 import android.os.Bundle
-import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.fragment.app.FragmentActivity
@@ -12,8 +11,7 @@ import id.glideslope.app.ui.Root
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // no screenshots, and a blank card in Recents: amounts never show outside the app (F-14, 4.10)
-        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        // screenshots are allowed (owner's choice); privacy mode still hides amounts inside the app
         enableEdgeToEdge()
         setContent { GlideslopeTheme { Root(this) } }
     }
