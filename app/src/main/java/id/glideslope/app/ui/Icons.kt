@@ -9,18 +9,19 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.unit.dp
 
-private fun lucide(name: String, vararg paths: String): ImageVector =
+private fun lucide(name: String, vararg paths: String, stroke: Float = 1.75f): ImageVector =
     ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).apply {
         for (d in paths) addPath(
             pathData = PathParser().parsePathString(d).toNodes(),
             stroke = SolidColor(Color.Black),
-            strokeLineWidth = 1.75f,
+            strokeLineWidth = stroke,
             strokeLineCap = StrokeCap.Round,
             strokeLineJoin = StrokeJoin.Round,
         )
     }.build()
 
 object Ic {
+    val trendingDown = lucide("trending-down", "M16 17h6v-6", "m22 17-8.5-8.5-5 5L2 7", stroke = 2.5f)
     val home = lucide("home", "M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8", "M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z")
     val inbox = lucide("inbox", "M22 12h-6l-2 3h-4l-2-3H2", "M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z")
     val list = lucide("list", "M3 12h.01", "M3 18h.01", "M3 6h.01", "M8 12h13", "M8 18h13", "M8 6h13")
