@@ -225,12 +225,20 @@ private fun SwipeCard(key: String, canConfirm: () -> Boolean, onConfirm: () -> U
     val scope = rememberCoroutineScope()
     val offset = remember(key) { Animatable(0f) }
     val density = LocalDensity.current
-    val threshold = with(density) { 80.dp.toPx() }
-    val fling = with(density) { 900.dp.toPx() }
+    val threshold = with(density) { 96.dp.toPx() }
+    val fling = with(density) { 1100.dp.toPx() }
     val exit = with(density) { 480.dp.toPx() }
+    // a card coming up from the stack: slightly smaller and transparent, easing to full size with a soft spring
+    val enter = remember(key) { Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(key) { enter.animateTo(1f, spring(dampingRatio = 0.85f, stiffness = 260f)) }
     Box(
         Modifier
-            .graphicsLayer { translationX = offset.value; rotationZ = (offset.value / 60f).coerceIn(-12f, 12f) }
+            .graphicsLayer {
+                translationX = offset.value
+                rotationZ = (offset.value / 60f).coerceIn(-12f, 12f)
+                val e = enter.value.coerceIn(0f, 1f)
+                scaleX = 0.94f + 0.06f * e; scaleY = 0.94f + 0.06f * e; alpha = 0.3f + 0.7f * e
+            }
             .draggable(
                 orientation = Orientation.Horizontal,
                 state = rememberDraggableState { d ->
@@ -241,9 +249,11 @@ private fun SwipeCard(key: String, canConfirm: () -> Boolean, onConfirm: () -> U
                     val v = offset.value
                     scope.launch {
                         when {
-                            (v > threshold || velocity > fling) && v > 0 && canConfirm() -> { offset.animateTo(exit, tween(180)); onConfirm() }
-                            (v < -threshold || velocity < -fling) && v < 0 -> { offset.animateTo(-exit, tween(180)); onSkip() }
-                            else -> offset.animateTo(0f, spring(dampingRatio = 0.8f, stiffness = 600f))
+                            // leaving: an accelerating ease (Material "emphasized accelerate"), long enough to read as a throw
+                            (v > threshold || velocity > fling) && v > 0 && canConfirm() -> { offset.animateTo(exit, tween(340, easing = androidx.compose.animation.core.CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)), velocity); onConfirm() }
+                            (v < -threshold || velocity < -fling) && v < 0 -> { offset.animateTo(-exit, tween(340, easing = androidx.compose.animation.core.CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)), velocity); onSkip() }
+                            // back to the middle: a soft spring that carries the finger's velocity, one gentle overshoot
+                            else -> offset.animateTo(0f, spring(dampingRatio = 0.72f, stiffness = 320f), velocity)
                         }
                     }
                 },
@@ -259,7 +269,7 @@ private fun SwipeCard(key: String, canConfirm: () -> Boolean, onConfirm: () -> U
         if (abs(offset.value) > 24) {
             val confirm = offset.value > 0
             Box(
-                Modifier.align(if (confirm) Alignment.TopStart else Alignment.TopEnd).padding(16.dp).clip(CircleShape)
+                Modifier.align(if (confirm) Alignment.TopStart else Alignment.TopEnd).padding(16.dp).graphicsLayer { alpha = ((abs(offset.value) - 24f) / threshold).coerceIn(0f, 1f) }.clip(CircleShape)
                     .background(if (confirm) Token.aksen else Token.teksRedup).padding(horizontal = 14.dp, vertical = 6.dp),
             ) { Text(if (confirm) "Konfirmasi" else "Lewati", color = Token.teksDiAksen, style = MaterialTheme.typography.labelLarge) }
         }
