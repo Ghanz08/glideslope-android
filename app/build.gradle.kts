@@ -16,8 +16,8 @@ android {
         targetSdk = 36
         versionCode = 2
         versionName = "0.2.0"
-        // the Glideslope server; overridable with -PglideslopeUrl=https://… for local testing
-        buildConfigField("String", "SERVER_URL", "\"${providers.gradleProperty("glideslopeUrl").getOrElse("")}\"")
+        // the Glideslope server, built in (owner never types it); overridable with -PglideslopeUrl=https://… for local testing
+        buildConfigField("String", "SERVER_URL", "\"${providers.gradleProperty("glideslopeUrl").getOrElse("https://glideslope.ghanizulhusni.space")}\"")
     }
     buildTypes {
         release {

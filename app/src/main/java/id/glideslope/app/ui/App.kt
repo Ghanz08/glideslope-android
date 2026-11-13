@@ -237,20 +237,12 @@ private fun LogRow(it: Item) {
 private fun SettingsScreen(pad: PaddingValues, saved: () -> Unit) {
     val ctx = LocalContext.current
     val s = remember { Settings(ctx) }
-    var url by rememberSaveable { mutableStateOf(s.serverUrl) }
     var secret by rememberSaveable { mutableStateOf("") }
     var allowed by remember { mutableStateOf(s.allowed) }
     val hasSecret = remember { !s.secret.isNullOrEmpty() }
-    val urlOk = url.trim().startsWith("https://")
     Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Setelan", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
         Section("Server") {
-            OutlinedTextField(
-                url, { url = it }, label = { Text("Alamat Glideslope") }, placeholder = { Text("https://…") },
-                singleLine = true, isError = url.isNotBlank() && !urlOk,
-                supportingText = { if (url.isNotBlank() && !urlOk) Text("Harus diawali https://") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth(),
-            )
             OutlinedTextField(
                 secret, { secret = it }, label = { Text("Rahasia webhook") },
                 placeholder = { Text(if (hasSecret) "Tersimpan · isi untuk mengganti" else "") },
@@ -276,13 +268,12 @@ private fun SettingsScreen(pad: PaddingValues, saved: () -> Unit) {
         }
         Button(
             onClick = {
-                s.serverUrl = url.trim()
                 if (secret.isNotBlank()) s.secret = secret.trim()
                 s.allowed = allowed
                 SendWorker.enqueue(ctx)
                 saved()
             },
-            enabled = urlOk && (hasSecret || secret.isNotBlank()),
+            enabled = (hasSecret || secret.isNotBlank()),
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
         ) { Text("Simpan") }
     }

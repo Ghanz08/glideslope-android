@@ -41,7 +41,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import id.glideslope.app.BuildConfig
 import id.glideslope.app.MainActivity
 import id.glideslope.app.Settings
 import id.glideslope.app.data.Api
@@ -79,7 +78,6 @@ fun AuthScreen(activity: MainActivity, onSignedIn: () -> Unit) {
     val settings = remember { Settings(activity) }
     val api = remember { Api(settings, SessionStore(activity)) }
     val scope = rememberCoroutineScope()
-    var server by rememberSaveable { mutableStateOf(settings.serverUrl.ifBlank { BuildConfig.SERVER_URL }) }
     var email by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
@@ -102,10 +100,6 @@ fun AuthScreen(activity: MainActivity, onSignedIn: () -> Unit) {
         Title(if (needCode) "Kode autentikator" else "Masuk ke Glideslope")
         if (!needCode) {
             OutlinedTextField(
-                server, { server = it.trim() }, label = { Text("Alamat Glideslope") }, placeholder = { Text("https://…") }, singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
                 email, { email = it }, label = { Text("Email") }, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth(),
             )
@@ -123,12 +117,11 @@ fun AuthScreen(activity: MainActivity, onSignedIn: () -> Unit) {
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
         Button(
-            enabled = !busy && (if (needCode) code.length == 6 else server.startsWith("https://") && email.isNotBlank() && password.isNotEmpty()),
+            enabled = !busy && (if (needCode) code.length == 6 else email.isNotBlank() && password.isNotEmpty()),
             onClick = {
                 busy = true
                 scope.launch {
                     if (!needCode) {
-                        settings.serverUrl = server
                         val r = api.login(email.trim(), password)
                         show(r)
                         if (r is ApiResult.Ok) { password = ""; needCode = true }

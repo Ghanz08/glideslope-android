@@ -8,9 +8,8 @@ import id.glideslope.app.data.Crypto
 class Settings(ctx: Context) {
     private val prefs = ctx.applicationContext.getSharedPreferences("setelan", Context.MODE_PRIVATE)
 
-    var serverUrl: String
-        get() = prefs.getString("server_url", "") ?: ""
-        set(v) = prefs.edit().putString("server_url", v).apply()
+    /** Built in (BuildConfig, -PglideslopeUrl overrides it); the owner never types it. */
+    val serverUrl: String get() = BuildConfig.SERVER_URL
 
     var allowed: Set<String>
         get() = prefs.getStringSet("allowed", emptySet()) ?: emptySet()
