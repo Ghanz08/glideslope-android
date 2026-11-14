@@ -2,6 +2,11 @@
 // shows evidence and lets the owner edit, mark one-off, delete (with undo) or restore. Edits go through F-14.3.
 package id.glideslope.app.ui
 
+import id.glideslope.app.Settings
+import id.glideslope.app.data.Api
+import id.glideslope.app.data.ApiResult
+import id.glideslope.app.data.SessionStore
+import id.glideslope.app.sync.PullWorker
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -173,6 +178,8 @@ fun TxDetailScreen(id: String, onBack: () -> Unit, onSplit: (String) -> Unit = {
     val linkRows by remember(id) { dao.rowsMentioning("transaction_labels", id) }.collectAsState(initial = emptyList())
     val evidenceRows by remember(id) { dao.rowsMentioning("transaction_evidence", id) }.collectAsState(initial = emptyList())
     var editing by remember { mutableStateOf(false) }
+    var lending by remember { mutableStateOf(false) }
+    var lendError by remember { mutableStateOf<String?>(null) }
     val t = tx ?: run { Column(Modifier.fillMaxSize()) { BackBar("Transaksi", onBack) }; return }
     val json = { s: String -> runCatching { Json.parseToJsonElement(s).jsonObject }.getOrNull() }
     val labels = remember(labelRows, linkRows, id) {
@@ -202,6 +209,9 @@ fun TxDetailScreen(id: String, onBack: () -> Unit, onSplit: (String) -> Unit = {
                     else -> Pill("Terkonfirmasi", Ic.circleCheck, Token.aksenLembut, Token.aksenTeks)
                 }
                 DetailRow("Akun", acc?.name ?: "—", if (t.deletedAt == null && t.kind != "transfer") ({ editing = true }) else null)
+                if (t.deletedAt == null && !t.pending && (t.kind == "expense" || t.kind == "income")) {
+                    DetailRow(if (t.direction == "out") "Pinjamkan ke…" else "Pinjam dari…", "Bukan " + (if (t.direction == "out") "pengeluaran" else "pemasukan"), { lending = true })
+                }
                 if (t.kind != "transfer") DetailRow("Kategori", cat?.name ?: "—", if (t.deletedAt == null) ({ editing = true }) else null)
                 t.note?.let { DetailRow("Catatan", it) }
                 if (labels.isNotEmpty()) DetailRow("Label", labels.joinToString(", "))
@@ -227,6 +237,28 @@ fun TxDetailScreen(id: String, onBack: () -> Unit, onSplit: (String) -> Unit = {
                 ) { Text("Hapus", color = Token.galat) }
             } else {
                 Button(onClick = { scope.launch { writes.restoreTx(t) } }, colors = ButtonDefaults.buttonColors(containerColor = Token.aksen), modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Pulihkan") }
+            }
+        }
+    }
+    if (lending) {
+        val out = t.direction == "out"
+        val fs = listOf(
+            FieldSpec("name", if (out) "Dipinjamkan ke" else "Dipinjam dari", initial = t.merchantRaw.orEmpty()),
+            FieldSpec("note", "Kesepakatan (opsional)", hint = "Untuk apa, kapan kembali"),
+            FieldSpec("due_on", "Tanggal kembali (opsional)", Kind.Date, ""),
+        )
+        FormDialog(if (out) "Pinjamkan ke…" else "Pinjam dari…", fs, submit = "Catat", error = lendError, onDismiss = { lending = false; lendError = null }) { v ->
+            val body = kotlinx.serialization.json.buildJsonObject {
+                put("transaction_id", id); put("direction", if (out) "piutang" else "utang"); put("contact_name", (v["name"] ?: "").trim())
+                (v["note"] ?: "").trim().takeIf { it.isNotEmpty() }?.let { put("note", it) }
+                (v["due_on"] ?: "").takeIf { it.isNotBlank() }?.let { put("due_on", it) }
+            }
+            scope.launch {
+                when (val r = Api(Settings(ctx), SessionStore(ctx)).send("POST", "/api/v1/loans", body.toString())) {
+                    is ApiResult.Ok -> { lending = false; lendError = null; PullWorker.now(ctx) }
+                    is ApiResult.Fail -> lendError = r.message
+                    ApiResult.Offline -> lendError = "Tidak ada koneksi. Pinjaman dicatat saat online."
+                }
             }
         }
     }

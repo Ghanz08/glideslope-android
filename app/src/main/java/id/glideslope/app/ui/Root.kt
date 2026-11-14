@@ -148,6 +148,7 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
             when {
                 dest.startsWith("nota/") -> screen = "nota" // from the review back to the scanner
                 dest.startsWith("aset/") || dest.startsWith("bagi") -> screen = null
+                dest.startsWith("orang/") -> screen = "piutang"
                 dest == "nota" -> screen = null
                 else -> { screen = null; settings = true } // from a Lainnya screen back to the hub
             }
@@ -158,7 +159,8 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
                 dest == "analitik" -> AnalyticsScreen(onBack = back)
                 dest == "anggaran" -> BudgetScreen(onBack = back)
                 dest == "langganan" -> SubscriptionsScreen(onBack = back)
-                dest == "piutang" -> ReceivablesScreen(onBack = back)
+                dest == "piutang" -> LoansScreen(onBack = back, onOpen = { screen = "orang/$it" })
+                dest.startsWith("orang/") -> ContactScreen(dest.removePrefix("orang/"), onBack = { screen = "piutang" })
                 dest == "rencana" -> PlannedScreen(onBack = back)
                 dest == "label" -> LabelsScreen(onBack = back)
                 dest == "sumber" -> SourcesScreen(onBack = back)

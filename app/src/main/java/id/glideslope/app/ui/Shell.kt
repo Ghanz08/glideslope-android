@@ -93,7 +93,7 @@ fun SettingsHub(pad: PaddingValues, onBack: () -> Unit, onOpen: (String) -> Unit
             GsCard(padding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
                 listOf(
                     "analitik" to ("Analitik" to Ic.list), "anggaran" to ("Anggaran" to Ic.wallet), "langganan" to ("Langganan" to Ic.arrows),
-                    "piutang" to ("Piutang" to Ic.users), "rencana" to ("Rencana pengeluaran" to Ic.info), "label" to ("Label" to Ic.list),
+                    "piutang" to ("Utang-piutang" to Ic.users), "rencana" to ("Rencana pengeluaran" to Ic.info), "label" to ("Label" to Ic.list),
                     "sumber" to ("Sumber email" to Ic.inbox), "akun" to ("Rekening & wallet" to Ic.bank), "impor" to ("Impor mutasi bank" to Ic.upload), "log" to ("Log aktivitas" to Ic.scrollText), "notifikasi" to ("Pemantau notifikasi HP" to Ic.camera), "pengaturan" to ("Pengaturan" to Ic.user),
                 ).forEachIndexed { i, (key, v) ->
                     if (i > 0) HorizontalDivider(color = Token.garis)
