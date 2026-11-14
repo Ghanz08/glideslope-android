@@ -50,6 +50,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import id.glideslope.app.AppLock
+import id.glideslope.app.Boot
+import kotlinx.coroutines.delay
 import id.glideslope.app.MainActivity
 import id.glideslope.app.Settings
 import id.glideslope.app.data.Db
@@ -79,7 +81,8 @@ fun Root(activity: MainActivity) {
 /** Brand-blue, like the sign-in page's panel: the name, the tagline, and the glide path drawing itself down to today's dot. */
 @Composable
 private fun LockScreen(unlock: () -> Unit) {
-    LaunchedEffect(Unit) { unlock() }
+    // the biometric prompt waits until the splash is gone and the lock screen has been seen for a moment
+    LaunchedEffect(Boot.released) { if (Boot.released) { delay(450); unlock() } }
     val blue = Color(0xFF2D5BD6)
     val draw = remember { Animatable(0f) }
     val pulse = rememberInfiniteTransition(label = "dot").animateFloat(0f, 1f, infiniteRepeatable(tween(1800, easing = LinearEasing)), label = "pulse")
