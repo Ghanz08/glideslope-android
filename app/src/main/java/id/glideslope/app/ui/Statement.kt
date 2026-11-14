@@ -2,6 +2,8 @@
 // choose what to bring in, one bar saves. The same /api/v1/statements/preview and /apply as the web.
 package id.glideslope.app.ui
 
+import id.glideslope.app.AppLock
+
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -139,7 +141,7 @@ fun StatementScreen(onBack: () -> Unit) {
             }
         }
     }
-    fun choose() = launcher.launch(arrayOf("application/pdf", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/octet-stream"))
+    fun choose() { AppLock.handOff(); launcher.launch(arrayOf("application/pdf", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/octet-stream")) }
     fun reset() { file = null; preview = null; needPassword = false; error = null; password = ""; result = null }
 
     fun save() {

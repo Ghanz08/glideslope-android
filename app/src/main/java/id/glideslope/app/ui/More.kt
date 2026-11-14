@@ -2,6 +2,8 @@
 // All read /api/v1/layar/* (F-15.4: raw data, formatted here) and need a connection.
 package id.glideslope.app.ui
 
+import id.glideslope.app.startHandOff
+
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.Canvas
@@ -180,7 +182,7 @@ fun ReceivablesScreen(onBack: () -> Unit) = RemoteScreen("Piutang", "/api/v1/lay
                 val phone = split?.text("phone_digits")
                 OutlinedButton(onClick = {
                     val text = "Halo ${r.text("person_name")}, mengingatkan sisa ${formatRupiahPlain(money(r, "remaining"))}${title?.let { " untuk $it" } ?: ""}. Terima kasih!"
-                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/${phone.orEmpty()}?text=${Uri.encode(text)}")))
+                    ctx.startHandOff(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/${phone.orEmpty()}?text=${Uri.encode(text)}")))
                 }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("WhatsApp") }
                 Button(onClick = { paying = r }, enabled = accounts.isNotEmpty(), modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Tandai lunas") }
             }
@@ -443,7 +445,7 @@ fun SourcesScreen(onBack: () -> Unit) = RemoteScreen("Sumber email", "/api/v1/la
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (status != "terhubung") Button(onClick = {
                 // Google's consent screen needs a browser; the server's callback returns here once the owner is signed in on the web
-                ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Settings(ctx).serverUrl.trimEnd('/') + "/api/v1/gmail/connect")))
+                ctx.startHandOff(Intent(Intent.ACTION_VIEW, Uri.parse(Settings(ctx).serverUrl.trimEnd('/') + "/api/v1/gmail/connect")))
             }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Hubungkan Gmail") }
             else {
                 OutlinedButton(enabled = !w.busy, onClick = { w.call("POST", "/api/v1/backfill", okText = "Pembacaan email lama dimulai.") { reload() } }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Baca email lama") }

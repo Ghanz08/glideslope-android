@@ -32,13 +32,8 @@ class MainActivity : FragmentActivity() {
         setContent { GlideslopeTheme { Root(this) } }
     }
 
-    override fun onStart() {
-        super.onStart()
-        AppLock.onForeground()
-    }
-
     override fun onStop() {
         super.onStop()
-        AppLock.onBackground()
+        if (!isChangingConfigurations) AppLock.onLeave() // a rotation is not leaving
     }
 }

@@ -1,6 +1,8 @@
 // S-14 Scan nota and S-15 Tinjau nota (F-09): photo → read on the phone (ML Kit) → server validates → owner confirms.
 package id.glideslope.app.ui
 
+import id.glideslope.app.AppLock
+
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -110,14 +112,14 @@ fun ScanScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
                     val file = File.createTempFile("nota", ".jpg", dir)
                     val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", file)
                     photo = uri
-                    take.launch(uri)
+                    AppLock.handOff(); take.launch(uri)
                 },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
             ) { Icon(Ic.camera, null, modifier = Modifier.size(20.dp)); Spacer(Modifier.size(8.dp)); Text("Ambil foto") }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(
                 enabled = busy == null,
-                onClick = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                onClick = { AppLock.handOff(); pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
             ) { Text("Pilih dari galeri") }
         }

@@ -2,6 +2,8 @@
 // then share: one receivable per friend and a WhatsApp message you send yourself.
 package id.glideslope.app.ui
 
+import id.glideslope.app.startHandOff
+
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
@@ -174,7 +176,7 @@ fun SplitScreen(id: String, onBack: () -> Unit) = RemoteScreen("Bagi tagihan", "
             LineRow(if (p.flag("is_owner")) "Kamu" else p.text("name") ?: "Teman", if (p.flag("is_owner")) "Dicatat sebagai pengeluaran" else "Jadi piutang", rupiah(share))
             if (shared && !p.flag("is_owner") && share > 0) OutlinedButton(onClick = {
                 val text = "Halo ${p.text("name")}, ini bagianmu untuk ${sp.text("title")} (${fmtDate(sp.text("occurred_on"))}): ${formatRupiah(share)}." + (pay?.let { " $it" } ?: "") + " Terima kasih!"
-                ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/${p.text("phone_digits").orEmpty()}?text=${Uri.encode(text)}")))
+                ctx.startHandOff(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/${p.text("phone_digits").orEmpty()}?text=${Uri.encode(text)}")))
             }, modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)) { Text("Kirim via WhatsApp ke ${p.text("name")}") }
         }
     }

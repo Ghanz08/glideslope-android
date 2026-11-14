@@ -1,6 +1,8 @@
 // Three screens (F-12.5): Status with the setup checklist, Log of what was captured and sent, Setelan.
 package id.glideslope.app.ui
 
+import id.glideslope.app.startHandOff
+
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -107,15 +109,15 @@ private fun openListenerSettings(ctx: Context) {
     val detail = Intent(Sys.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
         .putExtra(Sys.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, ComponentName(ctx, Listener::class.java).flattenToString())
     val intent = if (Build.VERSION.SDK_INT >= 30) detail else Intent(Sys.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-    runCatching { ctx.startActivity(intent) }.onFailure { ctx.startActivity(Intent(Sys.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+    runCatching { ctx.startHandOff(intent) }.onFailure { ctx.startHandOff(Intent(Sys.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
 }
 
 private fun openAppInfo(ctx: Context) =
-    ctx.startActivity(Intent(Sys.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null)))
+    ctx.startHandOff(Intent(Sys.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null)))
 
 private fun askBattery(ctx: Context) = runCatching {
-    ctx.startActivity(Intent(Sys.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.fromParts("package", ctx.packageName, null)))
-}.onFailure { ctx.startActivity(Intent(Sys.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+    ctx.startHandOff(Intent(Sys.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.fromParts("package", ctx.packageName, null)))
+}.onFailure { ctx.startHandOff(Intent(Sys.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {

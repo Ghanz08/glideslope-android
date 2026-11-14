@@ -20,11 +20,11 @@ import javax.crypto.SecretKey
 
 object AppLock {
     private const val ALIAS = "glideslope-unlock"
-    private const val IDLE_MS = 5 * 60 * 1000L // F-01.2 default idle limit
+    private const val HANDOFF_MS = 2 * 60 * 1000L // how long a picker or camera we opened may keep the app unlocked
 
     @Volatile var locked = true
         private set
-    private var backgroundAt = 0L
+    private var handoffUntil = 0L
 
     // device credential with a CryptoObject needs Android 11+; older phones use the fingerprint alone
     private val authenticators = if (Build.VERSION.SDK_INT >= 30) BIOMETRIC_STRONG or DEVICE_CREDENTIAL else BIOMETRIC_STRONG
@@ -33,10 +33,13 @@ object AppLock {
     fun available(activity: FragmentActivity) =
         BiometricManager.from(activity).canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS
 
-    fun onBackground() { backgroundAt = SystemClock.elapsedRealtime() }
+    /** Call right before opening a picker, the camera or another app on the owner's behalf: coming back must not lock. */
+    fun handOff() { handoffUntil = SystemClock.elapsedRealtime() + HANDOFF_MS }
 
-    fun onForeground() {
-        if (backgroundAt > 0 && SystemClock.elapsedRealtime() - backgroundAt > IDLE_MS) locked = true
+    /** The app is left (screen off, another app, Home): locked at once, unless we handed off ourselves (F-01.2). */
+    fun onLeave() {
+        if (SystemClock.elapsedRealtime() > handoffUntil) locked = true
+        handoffUntil = 0L
     }
 
     private fun key(): SecretKey {
@@ -76,4 +79,10 @@ object AppLock {
     }
 
     fun unlockWithoutPrompt() { locked = false }
+}
+
+/** Opens another screen on the owner's behalf (system settings, WhatsApp, the browser) without locking on return. */
+fun android.content.Context.startHandOff(intent: android.content.Intent) {
+    AppLock.handOff()
+    startActivity(intent)
 }

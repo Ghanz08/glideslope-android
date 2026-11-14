@@ -1,6 +1,8 @@
 // S-20 Pengaturan: rencana keuangan, keamanan (PIN), kategori, ekspor data, kesehatan sistem dan galat terakhir.
 package id.glideslope.app.ui
 
+import id.glideslope.app.AppLock
+
 import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -181,7 +183,7 @@ fun SettingsScreen(onBack: () -> Unit) = RemoteScreen("Pengaturan", "/api/v1/lay
                 scope.launch {
                     val body = buildJsonObject { put(if (pin) "pin" else "code", v["secret"].orEmpty()) }.toString()
                     when (val r = Api(Settings(ctx), SessionStore(ctx)).download("/api/v1/export", body)) {
-                        is ApiResult.Ok -> { pendingZip = r.value; dialog = null; exportBusy = null; save.launch("glideslope-export.zip") }
+                        is ApiResult.Ok -> { pendingZip = r.value; dialog = null; exportBusy = null; AppLock.handOff(); save.launch("glideslope-export.zip") }
                         is ApiResult.Fail -> exportBusy = r.message
                         ApiResult.Offline -> exportBusy = "Tidak ada koneksi."
                     }
