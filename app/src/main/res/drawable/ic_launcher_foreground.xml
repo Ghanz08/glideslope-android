@@ -2,12 +2,13 @@
 <!-- the Glideslope mark: the stepped glide path to today's dot (with its halo) and the dashed way ahead, fading out; as on the sign-in page -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
         <group android:scaleX="1.05" android:scaleY="1.05" android:translateX="28.8" android:translateY="26.7">
-            <path android:pathData="M5 7 L8.84 9.5 L9.09 12.5 L16.16 17.5 L16.4 21 L23.6 26 L23.8 29" android:strokeColor="#FFFFFF" android:strokeWidth="2.4" android:strokeLineCap="round" android:strokeLineJoin="round" />
-            <path android:pathData="M18.2 29.3 a5.6 5.6 0 1 0 11.2 0 a5.6 5.6 0 1 0 -11.2 0" android:strokeColor="#FFFFFF" android:strokeAlpha="0.45" android:strokeWidth="1.2" />
-            <path android:pathData="M20.8 29.3 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0" android:fillColor="#FFFFFF" />
-            <path android:pathData="M30.2 35.12 L32.0 36.56" android:strokeColor="#FFFFFF" android:strokeAlpha="0.95" android:strokeWidth="1.2" android:strokeLineCap="round" />
-            <path android:pathData="M33.8 38.0 L35.6 39.44" android:strokeColor="#FFFFFF" android:strokeAlpha="0.75" android:strokeWidth="1.2" android:strokeLineCap="round" />
-            <path android:pathData="M37.4 40.88 L39.2 42.32" android:strokeColor="#FFFFFF" android:strokeAlpha="0.55" android:strokeWidth="1.2" android:strokeLineCap="round" />
-            <path android:pathData="M41.0 43.76 L42.8 45.2" android:strokeColor="#FFFFFF" android:strokeAlpha="0.35" android:strokeWidth="1.2" android:strokeLineCap="round" />
+            <path android:name="line" android:pathData="M5 7 L8.84 9.5 L9.09 12.5 L16.16 17.5 L16.4 21 L23.6 26 L23.8 29" android:strokeColor="#FFFFFF" android:strokeWidth="2.4" android:strokeLineCap="round" android:strokeLineJoin="round" />
+            <path android:name="halo" android:pathData="M18.2 29.3 a5.6 5.6 0 1 0 11.2 0 a5.6 5.6 0 1 0 -11.2 0" android:strokeColor="#FFFFFF" android:strokeAlpha="0.45" android:strokeWidth="1.2" />
+            <path android:name="dot" android:pathData="M20.8 29.3 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0" android:fillColor="#FFFFFF" />
+            <path android:name="dash0" android:pathData="M28.6 33.34 L30.2 34.62" android:strokeColor="#FFFFFF" android:strokeAlpha="0.95" android:strokeWidth="1.2" android:strokeLineCap="round" />
+            <path android:name="dash1" android:pathData="M31.4 35.58 L33.0 36.86" android:strokeColor="#FFFFFF" android:strokeAlpha="0.79" android:strokeWidth="1.2" android:strokeLineCap="round" />
+            <path android:name="dash2" android:pathData="M34.2 37.82 L35.8 39.1" android:strokeColor="#FFFFFF" android:strokeAlpha="0.63" android:strokeWidth="1.2" android:strokeLineCap="round" />
+            <path android:name="dash3" android:pathData="M37.0 40.06 L38.6 41.34" android:strokeColor="#FFFFFF" android:strokeAlpha="0.47" android:strokeWidth="1.2" android:strokeLineCap="round" />
+            <path android:name="dash4" android:pathData="M39.8 42.3 L41.4 43.58" android:strokeColor="#FFFFFF" android:strokeAlpha="0.31" android:strokeWidth="1.2" android:strokeLineCap="round" />
         </group>
 </vector>

@@ -24,10 +24,11 @@ import androidx.compose.ui.unit.dp
 
 // x1, y1, x2, y2, alpha of the dashes that carry the path on, fading out (48-unit drawing)
 private val DASHES = listOf(
-        floatArrayOf(30.2f, 35.12f, 32.0f, 36.56f, 0.95f),
-        floatArrayOf(33.8f, 38.0f, 35.6f, 39.44f, 0.75f),
-        floatArrayOf(37.4f, 40.88f, 39.2f, 42.32f, 0.55f),
-        floatArrayOf(41.0f, 43.76f, 42.8f, 45.2f, 0.35f),
+        floatArrayOf(28.6f, 33.34f, 30.2f, 34.62f, 0.95f),
+        floatArrayOf(31.4f, 35.58f, 33.0f, 36.86f, 0.79f),
+        floatArrayOf(34.2f, 37.82f, 35.8f, 39.1f, 0.63f),
+        floatArrayOf(37.0f, 40.06f, 38.6f, 41.34f, 0.47f),
+        floatArrayOf(39.8f, 42.3f, 41.4f, 43.58f, 0.31f),
 )
 
 /** Logo tile: rounded square with the mark inside (48-unit drawing, its centre at 24 / 26, drawn at 82 % of the tile). */

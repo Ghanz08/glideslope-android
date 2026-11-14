@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- splash icon (Android 12+ plays it): the path draws down to the dot, then the dashes appear one by one -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android" android:drawable="@drawable/ic_splash_logo">
+        <target android:name="line" android:animation="@animator/splash_line" />
+        <target android:name="dot" android:animation="@animator/splash_dot" />
+        <target android:name="halo" android:animation="@animator/splash_halo" />
+        <target android:name="dash0" android:animation="@animator/splash_dash0" />
+        <target android:name="dash1" android:animation="@animator/splash_dash1" />
+        <target android:name="dash2" android:animation="@animator/splash_dash2" />
+        <target android:name="dash3" android:animation="@animator/splash_dash3" />
+        <target android:name="dash4" android:animation="@animator/splash_dash4" />
+</animated-vector>
