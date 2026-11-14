@@ -3,6 +3,7 @@ package id.glideslope.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -64,14 +65,28 @@ fun AccountsScreen(onBack: () -> Unit) = RemoteScreen("Rekening & wallet", "/api
     w.message?.let { InfoBanner(it) }
     GsCard(padding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
         if (accounts.isEmpty()) Text("Belum ada akun.", color = Token.teksRedup, modifier = Modifier.padding(vertical = 12.dp))
-        accounts.forEachIndexed { i, a ->
+        // pockets (F-19) are drawn under their bank account; the parent shows its family total
+        val top = accounts.filter { it.text("parent_id") == null }
+        top.forEachIndexed { i, a ->
             if (i > 0) HorizontalDivider(color = Token.garis)
             val kind = when (a.text("kind")) { "ewallet" -> "E-wallet"; "cash" -> "Tunai"; else -> "Bank" }
+            val pockets = accounts.filter { it.text("parent_id") == a.text("id") }
             LineRow(
                 (a.text("name") ?: "Akun") + if (a.flag("archived")) " (arsip)" else "",
-                listOfNotNull(kind, a.text("last4")?.let { "•••• $it" }, a.obj("label")?.text("text")).joinToString(" · "),
+                listOfNotNull(kind, a.text("last4")?.let { "•••• $it" }, a.obj("label")?.text("text"), if (pockets.isNotEmpty()) "${pockets.size} kantong" else null).joinToString(" · "),
                 rupiah(money(a, "balance")), onClick = { acting = a },
             )
+            pockets.forEach { k ->
+                Row(Modifier.padding(start = 16.dp)) {
+                    Box(Modifier.weight(1f)) {
+                        LineRow(
+                            k.text("name") ?: "Kantong",
+                            "Kantong${if (k.text("pocket_kind") == "bersama") " bersama · tidak dihitung di Dana tersisa" else ""}",
+                            rupiah(money(k, "balance")), onClick = { acting = k },
+                        )
+                    }
+                }
+            }
         }
     }
     if (adding || form != null) {

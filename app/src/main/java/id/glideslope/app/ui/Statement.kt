@@ -83,6 +83,8 @@ private fun read(ctx: Context, uri: Uri): Picked? {
     return Picked(name, mime, bytes)
 }
 
+private fun counterparts(p: JsonObject) = p.list("counterparts")
+
 private fun defaultDecision(r: JsonObject) = when (r.text("status")) { "new" -> "create"; "match" -> "link"; else -> "skip" }
 
 @Composable
@@ -103,6 +105,11 @@ fun StatementScreen(onBack: () -> Unit) {
     var result by remember { mutableStateOf<JsonObject?>(null) }
     var picking by remember { mutableStateOf<JsonObject?>(null) }
     var pickingAccount by remember { mutableStateOf(false) }
+    var rebase by remember { mutableStateOf(true) }
+    // counterpart name -> (action, target id); decided in the preview and remembered by the server for the next import
+    val cps = remember { mutableStateMapOf<String, Pair<String, String>>() }
+    var cpPick by remember { mutableStateOf<String?>(null) }
+    var cpTarget by remember { mutableStateOf<Pair<String, String>?>(null) } // name to action (account|asset)
 
     fun fail(r: ApiResult<*>): String? = when (r) {
         is ApiResult.Fail -> { needPassword = r.code == "PASSWORD_DIBUTUHKAN" || r.code == "PASSWORD_SALAH"; r.message }
@@ -123,6 +130,9 @@ fun StatementScreen(onBack: () -> Unit) {
                     decisions.clear()
                     p.list("rows").forEach { decisions[it.text("key").orEmpty()] = defaultDecision(it) }
                     checkpoint = p["check"].obj()?.flag("ok") == true && p.long("closing_balance") != null
+                    rebase = true
+                    cps.clear()
+                    p.list("counterparts").forEach { c -> cps[c.text("name").orEmpty()] = (c.text("action") ?: "inbox") to (c.text("target_id") ?: "") }
                 }
                 else -> error = fail(r)
             }
@@ -158,6 +168,15 @@ fun StatementScreen(onBack: () -> Unit) {
             put("closing_balance", p["closing_balance"] ?: JsonNull)
             put("checkpoint", checkpoint)
             put("checkpoint_date", p.text("period_to").orEmpty())
+            put("rebase_opening", rebase && p["rebase"].obj()?.flag("available") == true)
+            put("check_ok", p["check"].obj()?.flag("ok") == true)
+            val used = p.list("rows").filter { it.text("status") != "imported" && decisions[it.text("key")] == "create" }.mapNotNull { it.text("counterpart")?.takeIf { n -> n.isNotBlank() } }.toSet()
+            put("counterparts", buildJsonArray {
+                p.list("counterparts").filter { it.text("name") in used }.forEach { c ->
+                    val (action, target) = cps[c.text("name").orEmpty()] ?: ("inbox" to "")
+                    add(buildJsonObject { put("name", c.text("name").orEmpty()); put("action", action); if (target.isNotEmpty()) put("target_id", target) })
+                }
+            })
             put("rows", buildJsonArray {
                 p.list("rows").filter { it.text("status") != "imported" && decisions[it.text("key")] != "skip" }.forEach { r ->
                     val d = decisions[r.text("key")] ?: "skip"
@@ -196,6 +215,8 @@ fun StatementScreen(onBack: () -> Unit) {
                     "${res.long("created") ?: 0} transaksi baru, ${res.long("linked") ?: 0} ditautkan, ${res.long("skipped") ?: 0} dilewati.",
                     style = MaterialTheme.typography.bodyLarge, color = Token.teksRedup, modifier = Modifier.padding(top = 8.dp),
                 )
+                if (res.flag("rebased")) Text("Saldo awal akun dimundurkan ke awal mutasi.", style = MaterialTheme.typography.bodyMedium, color = Token.teksRedup, modifier = Modifier.padding(top = 8.dp))
+                if ((res.long("pockets_created") ?: 0) > 0) Text("${res.long("pockets_created")} kantong baru dibuat; saldonya perkiraan sampai riwayat kantong itu diimpor.", style = MaterialTheme.typography.bodyMedium, color = Token.teksRedup, modifier = Modifier.padding(top = 4.dp))
                 PillButton("Selesai", true, onBack)
             }
             return@Column
@@ -265,6 +286,51 @@ fun StatementScreen(onBack: () -> Unit) {
                     if (check?.flag("ok") == true) "Saldo cocok: ${check.text("detail").orEmpty()}" else "Saldo tidak cocok: ${check?.text("detail").orEmpty()} Periksa berkas sebelum menyimpan.",
                     warning = check?.flag("ok") != true,
                 )
+                val rb = p["rebase"].obj()
+                if (rb != null && accountId != null && rb.flag("available")) {
+                    val created = rows.filter { it.text("status") != "imported" && decisions[it.text("key")] == "create" }
+                    fun signed(r: JsonObject) = if (r.text("direction") == "in") (r.long("amount") ?: 0L) else -(r.long("amount") ?: 0L)
+                    val oldDate = rb.text("old_date").orEmpty()
+                    val after = (rb.long("new_balance") ?: 0L) + (rb.long("existing_since_new") ?: 0L) + created.sumOf { signed(it) }
+                    val before = (rb.long("balance_now") ?: 0L) + created.filter { (it.text("occurred_at") ?: "").take(10) >= oldDate }.sumOf { signed(it) }
+                    GsCard {
+                        Row(Modifier.clickable { rebase = !rebase }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            androidx.compose.material3.Checkbox(rebase, { rebase = it })
+                            Text("Mundurkan saldo awal ke ${fmtDate(rb.text("new_date"))}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                        }
+                        Text("Mutasi ini mulai sebelum saldo awal akun (${fmtDate(oldDate)}). Hanya berlaku bila Anda menyetujuinya.", style = MaterialTheme.typography.bodySmall, color = Token.teksRedup)
+                        Spacer(Modifier.height(8.dp))
+                        LineRow("Saldo awal", "${fmtDate(oldDate)} → ${fmtDate(rb.text("new_date"))}", rupiah(rb.long("old_balance") ?: 0L) + " → " + rupiah(rb.long("new_balance") ?: 0L))
+                        HorizontalDivider(color = Token.garis)
+                        LineRow("Saldo sekarang", value = rupiah(before) + " → " + (if (rebase) rupiah(after) else rupiah(before)))
+                        val others = rb.list("others")
+                        if (others.isNotEmpty()) Text("${others.size} transaksi lain di rentang ini ikut terhitung.", style = MaterialTheme.typography.bodySmall, color = Token.peringatan, modifier = Modifier.padding(top = 6.dp))
+                    }
+                } else if (rb != null && accountId != null && !rb.text("reason").isNullOrBlank() && (p.text("period_from") ?: "") < (rb.text("old_date") ?: "")) {
+                    InfoBanner("Saldo awal akun tidak dimundurkan: ${rb.text("reason")}")
+                }
+                val counterparts = p.list("counterparts")
+                if (counterparts.isNotEmpty() && accountId != null) {
+                    GsCard {
+                        Text("Pindah kantong dan RDN", style = MaterialTheme.typography.titleMedium)
+                        Text("Baris ini memindahkan uang Anda sendiri, jadi dicatat sebagai transfer atau investasi, bukan pengeluaran. Pilihan diingat untuk impor berikutnya.", style = MaterialTheme.typography.bodySmall, color = Token.teksRedup)
+                        counterparts.forEach { c ->
+                            val name = c.text("name").orEmpty()
+                            val (action, target) = cps[name] ?: ("inbox" to "")
+                            val targetName = when (action) {
+                                "account" -> accounts.firstOrNull { it.text("id") == target }?.text("name") ?: "pilih akun"
+                                "asset" -> p.list("assets").firstOrNull { it.text("id") == target }?.text("name") ?: "pilih aset"
+                                else -> null
+                            }
+                            HorizontalDivider(color = Token.garis)
+                            LineRow(
+                                name, "${c.long("rows") ?: 0} baris · ${if (c.text("kind") == "rdn") "RDN sekuritas" else "kantong Jago"}${if (c.flag("saved")) " · diingat" else ""}",
+                                when (action) { "pocket_new" -> "Kantong baru"; "account" -> "→ $targetName"; "asset" -> "→ $targetName"; "asset_new" -> "Aset baru"; else -> "Inbox" },
+                                valueColor = Token.aksenTeks, onClick = { cpPick = name },
+                            )
+                        }
+                    }
+                }
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FILTERS.forEach { (k, label) ->
                         val on = filter == k
@@ -301,10 +367,24 @@ fun StatementScreen(onBack: () -> Unit) {
                     }
                 }
                 error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Token.galat) }
-                PillButton(if (busy) "Menyimpan…" else "Simpan ${chosen.size} baris", accountId != null && !busy && (chosen.isNotEmpty() || checkpoint), ::save)
+                PillButton(if (busy) "Menyimpan…" else "Simpan ${chosen.size} baris", accountId != null && !busy && (chosen.isNotEmpty() || checkpoint || (rebase && p["rebase"].obj()?.flag("available") == true)), ::save)
             }
         }
 
+        cpPick?.let { name ->
+            val kind = counterparts(p).firstOrNull { it.text("name") == name }?.text("kind")
+            val opts = if (kind == "rdn") listOf("asset" to "Tautkan ke aset…", "asset_new" to "Buat aset baru", "inbox" to "Biarkan di Inbox")
+            else listOf("pocket_new" to "Buat kantong baru", "account" to "Tautkan ke akun…", "inbox" to "Biarkan di Inbox")
+            PickDialog(name, opts, onDismiss = { cpPick = null }) { act ->
+                cpPick = null
+                if (act == "account" || act == "asset") cpTarget = name to act else cps[name] = act to ""
+            }
+        }
+        cpTarget?.let { (name, act) ->
+            val options = if (act == "account") accounts.filter { it.text("id") != accountId }.map { (it.text("id") ?: "") to (it.text("name") ?: "") }
+            else p.list("assets").map { (it.text("id") ?: "") to (it.text("name") ?: "") }
+            PickDialog(if (act == "account") "Akun untuk $name" else "Aset untuk $name", options, onDismiss = { cpTarget = null }) { id -> cps[name] = act to id; cpTarget = null }
+        }
         picking?.let { r ->
             val opts = buildList {
                 add("skip" to "Lewati"); add("create" to "Buat baru")
@@ -333,6 +413,7 @@ private fun StatementRow(r: JsonObject, decision: String, onClick: () -> Unit) {
             Text(r.text("merchant") ?: r.text("text").orEmpty(), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             Text(
                 when (status) { "new" -> "Baru"; "match" -> "Cocok"; "maybe" -> "Mungkin sama"; else -> "Sudah diimpor" } +
+                    (r.text("counterpart")?.takeIf { it.isNotBlank() }?.let { if (r.text("counterpart_kind") == "rdn") " · investasi RDN" else " · transfer kantong" } ?: "") +
                     (if (r.flag("before_opening")) " · sebelum saldo awal" else "") + (if (r.text("kind") == "transfer_unknown") " · dicek di Inbox" else ""),
                 style = MaterialTheme.typography.bodySmall, color = Token.teksRedup,
             )
