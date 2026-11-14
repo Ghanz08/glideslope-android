@@ -19,7 +19,11 @@ class MainActivity : FragmentActivity() {
         val signedIn = SessionStore(this).get()?.aal == "aal2"
         if (savedInstanceState == null) Boot.begin(needsData = signedIn)
         splash.setKeepOnScreenCondition { Boot.keepSplash() }
-        splash.setOnExitAnimationListener { view -> view.view.animate().alpha(0f).setDuration(260).withEndAction { view.remove() }.start() }
+        splash.setOnExitAnimationListener { p ->
+            // the lock screen is the same blue: the mark grows and fades first, then the blue lets go (no hard cut)
+            p.iconView.animate().scaleX(1.15f).scaleY(1.15f).alpha(0f).setDuration(300).setInterpolator(android.view.animation.AccelerateInterpolator()).start()
+            p.view.animate().alpha(0f).setStartDelay(160).setDuration(420).setInterpolator(android.view.animation.DecelerateInterpolator()).withEndAction { p.remove() }.start()
+        }
         if (signedIn) {
             // the first pull starts behind the splash; it lets go when the work has finished
             PullWorker.now(this)

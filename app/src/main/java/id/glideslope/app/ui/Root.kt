@@ -52,6 +52,8 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import id.glideslope.app.AppLock
 import id.glideslope.app.Boot
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.ui.graphics.graphicsLayer
 import id.glideslope.app.MainActivity
 import id.glideslope.app.Settings
 import id.glideslope.app.data.Db
@@ -78,31 +80,45 @@ fun Root(activity: MainActivity) {
     }
 }
 
-/** Brand-blue, like the sign-in page's panel: the name, the tagline, and the glide path drawing itself down to today's dot. */
+/**
+ * Brand-blue, like the sign-in page's panel. It is the same blue as the splash, so the splash simply fades away and the
+ * content rises in one piece after another; the glide path draws itself last and the prompt comes after all of it.
+ */
 @Composable
 private fun LockScreen(unlock: () -> Unit) {
-    // the biometric prompt waits until the splash is gone and the lock screen has been seen for a moment
-    LaunchedEffect(Boot.released) { if (Boot.released) { delay(450); unlock() } }
     val blue = Color(0xFF2D5BD6)
+    val appear = remember { Animatable(0f) }
     val draw = remember { Animatable(0f) }
     val pulse = rememberInfiniteTransition(label = "dot").animateFloat(0f, 1f, infiniteRepeatable(tween(1800, easing = LinearEasing)), label = "pulse")
-    LaunchedEffect(Unit) { draw.animateTo(1f, tween(1500, delayMillis = 250, easing = FastOutSlowInEasing)) }
+    LaunchedEffect(Boot.released) {
+        if (!Boot.released) return@LaunchedEffect
+        launch { appear.animateTo(1f, tween(1000, easing = FastOutSlowInEasing)) }
+        launch { delay(450); draw.animateTo(1f, tween(1300, easing = FastOutSlowInEasing)) }
+        delay(1100) // the prompt waits until the screen has settled
+        unlock()
+    }
+    // item i starts a little after item i-1: 0 → 1 over about 60 % of the time
+    fun Modifier.rise(i: Int) = graphicsLayer {
+        val e = ((appear.value - i * 0.1f) / 0.6f).coerceIn(0f, 1f)
+        alpha = e
+        translationY = (1f - e) * 28.dp.toPx()
+    }
     Box(Modifier.fillMaxSize().background(blue)) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 28.dp)) {
-            Row(Modifier.padding(top = 28.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.padding(top = 28.dp).rise(0), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 GsLogo(44.dp, bg = Color.White, fg = blue)
                 Text("Glideslope", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-                Text("Terbang mulus sampai wisuda.", style = MaterialTheme.typography.headlineLarge.copy(fontSize = 34.sp, lineHeight = 41.sp), fontWeight = FontWeight.Bold, color = Color.White)
-                Row(Modifier.padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Terbang mulus sampai wisuda.", style = MaterialTheme.typography.headlineLarge.copy(fontSize = 34.sp, lineHeight = 41.sp), fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.rise(1))
+                Row(Modifier.padding(top = 16.dp).rise(2), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Ic.lock, null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(16.dp))
                     Text("Terkunci. Buka dengan sidik jari atau kunci layar.", style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.85f))
                 }
             }
             GlideLine(Color.White, draw.value, pulse.value, Modifier.fillMaxWidth().height(120.dp).padding(end = 4.dp))
             Box(
-                Modifier.padding(top = 28.dp, bottom = 32.dp).fillMaxWidth().heightIn(min = 56.dp).clip(CircleShape).background(Color.White).clickable(onClick = unlock),
+                Modifier.padding(top = 28.dp, bottom = 32.dp).rise(3).fillMaxWidth().heightIn(min = 56.dp).clip(CircleShape).background(Color.White).clickable(onClick = unlock),
                 contentAlignment = Alignment.Center,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
