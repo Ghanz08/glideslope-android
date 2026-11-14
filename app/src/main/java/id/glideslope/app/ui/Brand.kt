@@ -22,21 +22,30 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** Logo tile: rounded square with the mark inside (48-unit drawing, 34 wide, centred). */
+// x1, y1, x2, y2, alpha of the dashes that carry the path on, fading out (48-unit drawing)
+private val DASHES = listOf(
+        floatArrayOf(30.2f, 35.12f, 32.0f, 36.56f, 0.95f),
+        floatArrayOf(33.8f, 38.0f, 35.6f, 39.44f, 0.75f),
+        floatArrayOf(37.4f, 40.88f, 39.2f, 42.32f, 0.55f),
+        floatArrayOf(41.0f, 43.76f, 42.8f, 45.2f, 0.35f),
+)
+
+/** Logo tile: rounded square with the mark inside (48-unit drawing, its centre at 24 / 26, drawn at 82 % of the tile). */
 @Composable
 fun GsLogo(size: Dp = 72.dp, bg: Color = Token.aksen, fg: Color = Token.teksDiAksen, modifier: Modifier = Modifier) {
     Box(modifier.size(size).clip(RoundedCornerShape(size * 0.26f)).background(bg), contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(size)) {
-            val k = this.size.width / 48f
-            val w = 3f * k
+            val k = this.size.width / 48f * 0.82f
+            fun pt(x: Float, y: Float) = Offset(this.size.width / 2f + (x - 24f) * k, this.size.height / 2f + (y - 26f) * k)
             val p = Path().apply {
-                moveTo(7f * k, 8f * k); lineTo(12.3f * k, 11f * k); lineTo(12.6f * k, 14.6f * k); lineTo(22.3f * k, 20.6f * k)
-                lineTo(22.6f * k, 24.8f * k); lineTo(32.5f * k, 30.8f * k); lineTo(32.8f * k, 34.4f * k)
+                val pts = listOf(5f to 7f, 8.84f to 9.5f, 9.09f to 12.5f, 16.16f to 17.5f, 16.4f to 21f, 23.6f to 26f, 23.8f to 29f)
+                pts.forEachIndexed { i, (x, y) -> val q = pt(x, y); if (i == 0) moveTo(q.x, q.y) else lineTo(q.x, q.y) }
             }
-            drawPath(p, fg, style = Stroke(w, cap = StrokeCap.Round, join = StrokeJoin.Round))
-            drawCircle(fg, 2.6f * k, Offset(32.8f * k, 35.3f * k))
-            drawLine(fg, Offset(35.8f * k, 36.4f * k), Offset(37.4f * k, 37.6f * k), 2.6f * k, StrokeCap.Round)
-            drawLine(fg, Offset(39f * k, 38.8f * k), Offset(40.6f * k, 40f * k), 2.6f * k, StrokeCap.Round)
+            drawPath(p, fg, style = Stroke(2.4f * k, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            val dotAt = pt(23.8f, 29.3f)
+            drawCircle(fg.copy(alpha = 0.45f), 5.6f * k, dotAt, style = Stroke(1.2f * k))
+            drawCircle(fg, 3f * k, dotAt)
+            DASHES.forEach { d -> drawLine(fg.copy(alpha = d[4]), pt(d[0], d[1]), pt(d[2], d[3]), 1.2f * k, StrokeCap.Round) }
         }
     }
 }

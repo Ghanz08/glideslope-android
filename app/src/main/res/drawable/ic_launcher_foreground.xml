@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- the Glideslope mark: the stepped glide path with today's dot and the dashed way ahead (as on the sign-in page) -->
+<!-- the Glideslope mark: the stepped glide path to today's dot (with its halo) and the dashed way ahead, fading out; as on the sign-in page -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-        <group android:scaleX="1.15" android:scaleY="1.15" android:translateX="26.4" android:translateY="25.83">
-            <path android:pathData="M7 8 L12.3 11 L12.6 14.6 L22.3 20.6 L22.6 24.8 L32.5 30.8 L32.8 34.4" android:strokeColor="#FFFFFF" android:strokeWidth="3" android:strokeLineCap="round" android:strokeLineJoin="round" />
-            <path android:pathData="M30.2 35.3 a2.6 2.6 0 1 0 5.2 0 a2.6 2.6 0 1 0 -5.2 0" android:fillColor="#FFFFFF" />
-            <path android:pathData="M35.8 36.4 L37.4 37.6 M39 38.8 L40.6 40" android:strokeColor="#FFFFFF" android:strokeWidth="2.6" android:strokeLineCap="round" />
+        <group android:scaleX="1.05" android:scaleY="1.05" android:translateX="28.8" android:translateY="26.7">
+            <path android:pathData="M5 7 L8.84 9.5 L9.09 12.5 L16.16 17.5 L16.4 21 L23.6 26 L23.8 29" android:strokeColor="#FFFFFF" android:strokeWidth="2.4" android:strokeLineCap="round" android:strokeLineJoin="round" />
+            <path android:pathData="M18.2 29.3 a5.6 5.6 0 1 0 11.2 0 a5.6 5.6 0 1 0 -11.2 0" android:strokeColor="#FFFFFF" android:strokeAlpha="0.45" android:strokeWidth="1.2" />
+            <path android:pathData="M20.8 29.3 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0" android:fillColor="#FFFFFF" />
+            <path android:pathData="M30.2 35.12 L32.0 36.56" android:strokeColor="#FFFFFF" android:strokeAlpha="0.95" android:strokeWidth="1.2" android:strokeLineCap="round" />
+            <path android:pathData="M33.8 38.0 L35.6 39.44" android:strokeColor="#FFFFFF" android:strokeAlpha="0.75" android:strokeWidth="1.2" android:strokeLineCap="round" />
+            <path android:pathData="M37.4 40.88 L39.2 42.32" android:strokeColor="#FFFFFF" android:strokeAlpha="0.55" android:strokeWidth="1.2" android:strokeLineCap="round" />
+            <path android:pathData="M41.0 43.76 L42.8 45.2" android:strokeColor="#FFFFFF" android:strokeAlpha="0.35" android:strokeWidth="1.2" android:strokeLineCap="round" />
         </group>
 </vector>
