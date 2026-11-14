@@ -10,7 +10,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.MaterialTheme
 import androidx.activity.compose.BackHandler
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -57,12 +67,31 @@ fun Root(activity: MainActivity) {
     }
 }
 
+/** Brand-blue screen that continues the splash: the mark, the name, and one big way back in. */
 @Composable
 private fun LockScreen(unlock: () -> Unit) {
     LaunchedEffect(Unit) { unlock() }
-    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("Glideslope terkunci", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Button(onClick = unlock, modifier = Modifier.padding(top = 24.dp).fillMaxWidth().heightIn(min = 48.dp)) { Text("Buka kunci") }
+    val blue = Color(0xFF2D5BD6)
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(blue, Color(0xFF1F43A8))))) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                GsLogo(96.dp, bg = Color.White, fg = blue)
+                Text("Glideslope", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 24.dp))
+                Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(Ic.lock, null, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(16.dp))
+                    Text("Terkunci", style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.8f))
+                }
+            }
+            Box(
+                Modifier.padding(bottom = 36.dp).fillMaxWidth().heightIn(min = 56.dp).clip(CircleShape).background(Color.White).clickable(onClick = unlock),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Icon(Ic.fingerprint, null, tint = blue, modifier = Modifier.size(24.dp))
+                    Text("Buka kunci", style = MaterialTheme.typography.titleMedium, color = blue)
+                }
+            }
+        }
     }
 }
 
@@ -101,6 +130,8 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
                 dest == "notifikasi" -> ForwarderPage(onBack = back)
                 dest == "akun" -> AccountsScreen(onBack = back)
                 dest == "pengaturan" -> SettingsScreen(onBack = back)
+                dest == "impor" -> StatementScreen(onBack = back)
+                dest == "log" -> ActivityLogScreen(onBack = back)
                 dest == "bagi" -> SplitStartScreen(onBack = { screen = null }, onOpen = { screen = "bagi/$it" })
                 dest.startsWith("bagi/") -> SplitScreen(dest.removePrefix("bagi/"), onBack = { screen = null; tab = Tab.TRANSAKSI })
                 dest.startsWith("aset/") -> AssetDetailScreen(dest.removePrefix("aset/"), onBack = { screen = null })

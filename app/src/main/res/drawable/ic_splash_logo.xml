@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- splash icon: the same glyph, centred in the 288 dp canvas Android crops to a circle -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="288dp" android:height="288dp" android:viewportWidth="288" android:viewportHeight="288">
+        <group android:scaleX="4.4" android:scaleY="4.4" android:translateX="91.2" android:translateY="91.2">
+            <path android:pathData="M16 17h6v-6" android:strokeColor="#FFFFFF" android:strokeWidth="2.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+            <path android:pathData="m22 17-8.5-8.5-5 5L2 7" android:strokeColor="#FFFFFF" android:strokeWidth="2.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+        </group>
+</vector>

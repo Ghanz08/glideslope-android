@@ -2,4 +2,11 @@
     <style name="Theme.Glideslope" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">#F4F6F9</item>
     </style>
+
+    <!-- shown while the app starts: brand blue with the mark, then Theme.Glideslope takes over -->
+    <style name="Theme.Glideslope.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/brand</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.Glideslope</item>
+    </style>
 </resources>

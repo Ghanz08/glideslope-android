@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.androidx.sqlite.ktx)
     implementation(libs.sqlcipher)
     implementation(libs.androidx.biometric)
+    implementation(libs.androidx.splashscreen)
     implementation(libs.mlkit.text) // bundled Latin model: reads receipts on the phone, offline
     implementation(libs.androidx.exifinterface)
     implementation(libs.haze)

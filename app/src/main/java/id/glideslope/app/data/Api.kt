@@ -128,6 +128,17 @@ class Api(private val settings: Settings, private val sessions: SessionStore) {
         return authedAny { Request.Builder().url(url("/api/v1/receipts")).post(form).header("authorization", "Bearer $it").build() }
     }
 
+    /** F-17: a bank statement (.xlsx or .pdf) and its password, read on the server; also used to re-read for another account. */
+    suspend fun previewStatement(bytes: ByteArray, name: String, mime: String, password: String?, accountId: String?): ApiResult<JsonElement> {
+        val form = okhttp3.MultipartBody.Builder().setType(okhttp3.MultipartBody.FORM)
+            .addFormDataPart("file", name, bytes.toRequestBody(mime.toMediaType()))
+            .apply {
+                if (!password.isNullOrEmpty()) addFormDataPart("password", password)
+                if (accountId != null) addFormDataPart("account_id", accountId)
+            }.build()
+        return authedAny { Request.Builder().url(url("/api/v1/statements/preview")).post(form).header("authorization", "Bearer $it").build() }
+    }
+
     /** A POST whose answer is a file (the export ZIP). */
     suspend fun download(path: String, body: String): ApiResult<ByteArray> {
         repeat(2) { attempt ->

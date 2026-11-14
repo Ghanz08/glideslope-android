@@ -131,9 +131,7 @@ fun AuthScreen(activity: MainActivity, onSignedIn: () -> Unit) {
     Column(
         Modifier.fillMaxSize().background(Token.latar).statusBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 64.dp, bottom = 40.dp),
     ) {
-        Box(Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)).background(Token.aksen), contentAlignment = Alignment.Center) {
-            Icon(Ic.trendingDown, null, tint = Token.teksDiAksen, modifier = Modifier.size(31.dp))
-        }
+        GsLogo(56.dp)
         Text("Masuk ke catatan keuanganmu", style = MaterialTheme.typography.headlineSmall.copy(fontSize = 26.sp, lineHeight = 32.sp), color = Token.teks, modifier = Modifier.padding(top = 20.dp, bottom = 28.dp).semantics { heading() })
         if (!needCode) {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -175,7 +173,7 @@ fun AuthScreen(activity: MainActivity, onSignedIn: () -> Unit) {
 
 /** A labelled input as the PWA draws it: 13 sp semibold label, 12 dp corners, 1 dp border (red on error). */
 @Composable
-private fun AuthField(
+internal fun AuthField(
     label: String, value: String, onChange: (String) -> Unit, placeholder: String, error: String? = null, keyboard: KeyboardType = KeyboardType.Text,
     hidden: Boolean = false, trailing: (@Composable () -> Unit)? = null, onDone: (() -> Unit)? = null,
 ) {
@@ -231,7 +229,7 @@ private fun OtpBoxes(code: String, onChange: (String) -> Unit, error: Boolean) {
 
 /** The full-width pill: accent fill, 48 dp, faded when disabled (as the PWA's Button). */
 @Composable
-private fun PillButton(text: String, enabled: Boolean, onClick: () -> Unit) {
+internal fun PillButton(text: String, enabled: Boolean, onClick: () -> Unit) {
     Box(
         Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(CircleShape).background(Token.aksen.copy(alpha = if (enabled) 1f else 0.45f))
             .clickable(enabled = enabled, role = androidx.compose.ui.semantics.Role.Button, onClick = onClick),

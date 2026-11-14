@@ -94,7 +94,7 @@ fun SettingsHub(pad: PaddingValues, onBack: () -> Unit, onOpen: (String) -> Unit
                 listOf(
                     "analitik" to ("Analitik" to Ic.list), "anggaran" to ("Anggaran" to Ic.wallet), "langganan" to ("Langganan" to Ic.arrows),
                     "piutang" to ("Piutang" to Ic.users), "rencana" to ("Rencana pengeluaran" to Ic.info), "label" to ("Label" to Ic.list),
-                    "sumber" to ("Sumber email" to Ic.inbox), "akun" to ("Rekening & wallet" to Ic.bank), "notifikasi" to ("Pemantau notifikasi HP" to Ic.camera), "pengaturan" to ("Pengaturan" to Ic.user),
+                    "sumber" to ("Sumber email" to Ic.inbox), "akun" to ("Rekening & wallet" to Ic.bank), "impor" to ("Impor mutasi bank" to Ic.upload), "log" to ("Log aktivitas" to Ic.scrollText), "notifikasi" to ("Pemantau notifikasi HP" to Ic.camera), "pengaturan" to ("Pengaturan" to Ic.user),
                 ).forEachIndexed { i, (key, v) ->
                     if (i > 0) HorizontalDivider(color = Token.garis)
                     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { onOpen(key) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
