@@ -9,7 +9,7 @@ import androidx.compose.runtime.setValue
 
 object Boot {
     private const val MIN = 1400L
-    private const val MAX = 4500L
+    private const val MAX = 3000L
     private var start = SystemClock.elapsedRealtime()
     @Volatile var dataReady = false
 
