@@ -2,6 +2,13 @@
 // shows evidence and lets the owner edit, mark one-off, delete (with undo) or restore. Edits go through F-14.3.
 package id.glideslope.app.ui
 
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.draw.blur
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonObject
+import androidx.compose.material3.HorizontalDivider
 import id.glideslope.app.Settings
 import id.glideslope.app.data.Api
 import id.glideslope.app.data.ApiResult
@@ -215,7 +222,7 @@ fun TxDetailScreen(id: String, onBack: () -> Unit, onSplit: (String) -> Unit = {
                 if (t.kind != "transfer") DetailRow("Kategori", cat?.name ?: "—", if (t.deletedAt == null) ({ editing = true }) else null)
                 t.note?.let { DetailRow("Catatan", it) }
                 if (labels.isNotEmpty()) DetailRow("Label", labels.joinToString(", "))
-                if (evidence.isNotEmpty()) DetailRow("Bukti", evidence.joinToString(" + ") { e -> when (e.text("kind")) { "email" -> "Email"; "receipt" -> "Nota"; "webhook" -> "Notifikasi HP"; else -> "Manual" } })
+                if (evidence.isNotEmpty()) DetailRow("Bukti", evidence.joinToString(" + ") { e -> when (e.text("role")) { "email" -> "Email"; "receipt" -> "Nota"; "webhook" -> "Notifikasi HP"; else -> "Manual" } })
                 if (t.kind == "expense") Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("Sekali jalan", style = MaterialTheme.typography.bodyLarge)
@@ -224,6 +231,8 @@ fun TxDetailScreen(id: String, onBack: () -> Unit, onSplit: (String) -> Unit = {
                     Switch(t.isOneOff, { v -> scope.launch { writes.editTx(t, buildJsonObject { put("is_one_off", v) }, t.copy(isOneOff = v)) } }, enabled = t.deletedAt == null)
                 }
             }
+            // F-03.4: the nota behind the transaction: its items, totals and (online) its photo
+            evidence.filter { it.text("role") == "receipt" }.mapNotNull { it.text("receipt_id") }.distinct().forEach { ReceiptEvidenceCard(it) }
             if (t.deletedAt == null) {
                 if (t.kind != "transfer") OutlinedButton(onClick = { editing = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Ubah") }
                 if (t.kind == "expense" && !t.pending) {
@@ -307,3 +316,58 @@ private fun EditTx(t: TxEntity, accounts: List<AccountEntity>, categories: List<
     }
 }
 
+/** The items, totals and photo of a nota. Items come from the local cache (so they read offline); the photo is fetched when asked for. */
+@Composable
+private fun ReceiptEvidenceCard(receiptId: String) {
+    val ctx = LocalContext.current
+    val dao = remember { Db.get(ctx).sync() }
+    val receipt by produceState<JsonObject?>(null, receiptId) { value = dao.row("receipts", receiptId)?.let { runCatching { Json.parseToJsonElement(it).jsonObject }.getOrNull() } }
+    val itemRows by remember(receiptId) { dao.rowsMentioning("receipt_items", receiptId) }.collectAsState(initial = emptyList())
+    var photo by remember { mutableStateOf(false) }
+    val r = receipt ?: return
+    val items = remember(itemRows, receiptId) {
+        itemRows.mapNotNull { runCatching { Json.parseToJsonElement(it).jsonObject }.getOrNull() }.filter { it.text("receipt_id") == receiptId }.sortedBy { it.long("position") ?: 0 }
+    }
+    GsCard {
+        Text("Nota", style = MaterialTheme.typography.titleMedium)
+        r.text("merchant_name")?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Token.teksRedup) }
+        if (items.isEmpty()) Text("Item nota belum terbaca.", style = MaterialTheme.typography.bodyMedium, color = Token.teksRedup, modifier = Modifier.padding(top = 8.dp))
+        items.forEach { LineRow(it.text("name") ?: "Item", value = rupiah(it.long("line_total") ?: 0)) }
+        HorizontalDivider(color = Token.garis, modifier = Modifier.padding(vertical = 4.dp))
+        r.long("subtotal")?.let { LineRow("Subtotal", value = rupiah(it)) }
+        (r.long("service_charge") ?: 0).takeIf { it > 0 }?.let { LineRow("Biaya layanan", value = rupiah(it)) }
+        (r.long("tax_amount") ?: 0).takeIf { it > 0 }?.let { LineRow("Pajak", value = rupiah(it)) }
+        LineRow("Total", value = rupiah(r.long("total") ?: 0))
+        if (r.text("image_path") != null) OutlinedButton(onClick = { photo = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(top = 8.dp)) { Text("Lihat foto nota") }
+    }
+    if (photo) ReceiptPhotoDialog(receiptId) { photo = false }
+}
+
+@Composable
+private fun ReceiptPhotoDialog(receiptId: String, onClose: () -> Unit) {
+    val ctx = LocalContext.current
+    val hidden = LocalPrivacy.current.hidden
+    val state by produceState<Remote<android.graphics.Bitmap>>(Remote.Loading, receiptId) {
+        value = when (val r = Api(Settings(ctx), SessionStore(ctx)).receiptImage(receiptId)) {
+            is ApiResult.Ok -> withContext(Dispatchers.Default) { android.graphics.BitmapFactory.decodeByteArray(r.value, 0, r.value.size) }?.let { Remote.Ok(it) } ?: Remote.Err("Foto tidak bisa dibuka.")
+            is ApiResult.Fail -> Remote.Err(r.message)
+            ApiResult.Offline -> Remote.Err("Tidak ada koneksi. Foto nota butuh internet.", offline = true)
+        }
+    }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onClose, containerColor = Token.permukaan,
+        title = { Text("Foto nota") },
+        text = {
+            when (val s = state) {
+                Remote.Loading -> Text("Memuat foto…", color = Token.teksRedup)
+                is Remote.Err -> Text(s.message, color = Token.teks)
+                is Remote.Ok -> androidx.compose.foundation.Image(
+                    s.value.asImageBitmap(), "Foto nota",
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).then(if (hidden) Modifier.blur(24.dp) else Modifier),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                )
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = onClose) { Text("Tutup") } },
+    )
+}
