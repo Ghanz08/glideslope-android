@@ -152,6 +152,23 @@ class Api(private val settings: Settings, private val sessions: SessionStore) {
         return ApiResult.Fail(401, "TANPA_SESI", "Sesi berakhir. Masuk lagi.")
     }
 
+    /**
+     * F-01.2: the server checks the PIN (and counts the wrong ones). A 401 here is the answer, not an expired token, so unlike
+     * every other call it is never retried: a retry would send the wrong PIN twice and burn two of the five tries.
+     * Only a 401 that is not about the PIN (an expired access token) refreshes the token and sends it once more.
+     */
+    suspend fun verifyPin(pin: String): ApiResult<Unit> {
+        repeat(2) { attempt ->
+            val token = sessions.get()?.access_token ?: return ApiResult.Fail(401, "TANPA_SESI", "Silakan masuk dulu.")
+            val (status, body) = send(post("/api/v1/pin/verify", json.encodeToString(mapOf("pin" to pin)), token)) ?: return ApiResult.Offline
+            if (status in 200..299) return ApiResult.Ok(Unit)
+            val failure = fail(status, body)
+            if (status == 401 && failure.code != "PIN_SALAH" && failure.code != "SESI_BERAKHIR" && attempt == 0 && refresh()) return@repeat
+            return failure
+        }
+        return ApiResult.Fail(401, "TANPA_SESI", "Sesi berakhir. Masuk lagi.")
+    }
+
     suspend fun logout() {
         sessions.get()?.let { send(post("/api/v1/auth/keluar", json.encodeToString(mapOf("refresh_token" to it.refresh_token)), it.access_token)) }
         sessions.set(null)

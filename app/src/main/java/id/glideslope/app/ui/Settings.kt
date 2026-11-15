@@ -162,11 +162,11 @@ fun SettingsScreen(onBack: () -> Unit) = RemoteScreen("Pengaturan", "/api/v1/lay
             val fs = listOf(FieldSpec("pin", "PIN baru (6 angka)", Kind.Number))
             FormDialog("Atur PIN", fs, busy = w.busy, onDismiss = { dialog = null }) { v ->
                 val pin = v["pin"].orEmpty()
-                if (pin.length != 6) w.message = "PIN harus 6 angka." else w.call("PUT", "/api/v1/settings/pin", buildJsonObject { put("pin", pin) }.toString()) { done("PIN disimpan.") }
+                if (pin.length != 6) w.message = "PIN harus 6 angka." else w.call("PUT", "/api/v1/settings/pin", buildJsonObject { put("pin", pin) }.toString()) { id.glideslope.app.AppLock.setPinEnabled(ctx, true); done("PIN disimpan.") }
             }
         }
         "pin-off" -> PickDialog("Matikan PIN?", listOf("ya" to "Ya, matikan"), onDismiss = { dialog = null }) {
-            w.call("PUT", "/api/v1/settings/pin", """{"pin":null}""") { done("PIN dimatikan.") }
+            w.call("PUT", "/api/v1/settings/pin", """{"pin":null}""") { id.glideslope.app.AppLock.setPinEnabled(ctx, false); done("PIN dimatikan.") }
         }
         "kategori" -> {
             val fs = listOf(FieldSpec("name", "Nama kategori"), FieldSpec("kind", "Jenis", Kind.Choice(listOf("expense" to "Pengeluaran", "income" to "Pemasukan")), "expense"), FieldSpec("tone_key", "Warna", Kind.Choice(TONES), "netral"))

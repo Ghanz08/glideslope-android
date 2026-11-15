@@ -11,7 +11,12 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import id.glideslope.app.AppLock
 import id.glideslope.app.Settings
+import id.glideslope.app.data.ApiResult
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import id.glideslope.app.data.Api
 import id.glideslope.app.data.Db
 import id.glideslope.app.data.MetaEntity
@@ -21,9 +26,15 @@ import java.util.concurrent.TimeUnit
 /** One pull whose outcome is also written to `sync_error`, so every screen shows the same reason (and clears it on success). */
 suspend fun pullAndRecord(ctx: Context): PullOutcome {
     val db = Db.get(ctx)
-    val outcome = Syncer(db, Api(Settings(ctx), SessionStore(ctx))).pull()
+    val api = Api(Settings(ctx), SessionStore(ctx))
+    val outcome = Syncer(db, api).pull()
     when (outcome) {
-        PullOutcome.Done -> db.sync().meta(MetaEntity("sync_error", ""))
+        PullOutcome.Done -> {
+            db.sync().meta(MetaEntity("sync_error", ""))
+            // F-01.2: the lock screen shows the PIN pad only when the server has a PIN on
+            val me = (api.get("/api/v1/me") as? ApiResult.Ok)?.value as? JsonObject
+            ((me?.get("settings") as? JsonObject)?.get("pin_enabled") as? JsonPrimitive)?.booleanOrNull?.let { AppLock.setPinEnabled(ctx, it) }
+        }
         is PullOutcome.Failed -> db.sync().meta(MetaEntity("sync_error", "${outcome.code}|${outcome.message}"))
         PullOutcome.Offline -> Unit
     }

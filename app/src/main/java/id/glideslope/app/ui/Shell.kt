@@ -234,9 +234,10 @@ private fun ThemeTile(mode: String, label: String, modifier: Modifier) {
             when (mode) {
                 "terang" -> MiniApp(LightPalette, Modifier.fillMaxSize())
                 "gelap" -> MiniApp(DarkPalette, Modifier.fillMaxSize())
-                else -> Row(Modifier.fillMaxSize()) { // half and half: the phone decides
-                    Box(Modifier.weight(1f).fillMaxSize()) { MiniApp(LightPalette, Modifier.fillMaxSize()) }
-                    Box(Modifier.weight(1f).fillMaxSize()) { MiniApp(DarkPalette, Modifier.fillMaxSize().offset(x = (-24).dp)) }
+                // the phone decides: the dark miniature with the light one drawn over its left half
+                else -> {
+                    MiniApp(DarkPalette, Modifier.fillMaxSize())
+                    MiniApp(LightPalette, Modifier.fillMaxSize().clip(LeftHalf))
                 }
             }
             if (on) Box(Modifier.align(Alignment.TopEnd).padding(6.dp).size(20.dp).clip(CircleShape).background(Token.aksen), contentAlignment = Alignment.Center) {
@@ -246,6 +247,8 @@ private fun ThemeTile(mode: String, label: String, modifier: Modifier) {
         Text(label, style = MaterialTheme.typography.labelLarge, color = if (on) Token.aksenTeks else Token.teks)
     }
 }
+
+private val LeftHalf = androidx.compose.foundation.shape.GenericShape { size, _ -> addRect(androidx.compose.ui.geometry.Rect(0f, 0f, size.width / 2, size.height)) }
 
 @Composable
 private fun MiniApp(p: Palette, modifier: Modifier) {
