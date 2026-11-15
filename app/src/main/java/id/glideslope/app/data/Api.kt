@@ -139,20 +139,16 @@ class Api(private val settings: Settings, private val sessions: SessionStore) {
         return authedAny { Request.Builder().url(url("/api/v1/statements/preview")).post(form).header("authorization", "Bearer $it").build() }
     }
 
-    /**
-     * K-22: the photo of a nota, fetched when it is opened and never cached. The API answers 302 to a signed URL that lives 60 seconds;
-     * that second request goes out without the bearer token (the URL carries its own).
-     */
+    /** K-22: the photo of a nota, fetched when it is opened and never cached. The API sends the image bytes itself (Storage is not reachable from outside). */
     suspend fun receiptImage(id: String): ApiResult<ByteArray> {
         val token = sessions.get()?.access_token ?: return ApiResult.Fail(401, "TANPA_SESI", "Silakan masuk dulu.")
-        val manual = http.newBuilder().followRedirects(false).build()
         return withContext(Dispatchers.IO) {
             try {
-                manual.newCall(Request.Builder().url(url("/api/v1/receipts/$id/image")).header("authorization", "Bearer $token").build()).execute().use { first ->
-                    val target = first.header("location")?.let { first.request.url.resolve(it) }
-                        ?: return@withContext ApiResult.Fail(first.code, "TANPA_FOTO", "Nota ini belum punya foto.")
-                    http.newCall(Request.Builder().url(target).build()).execute().use { second ->
-                        if (second.isSuccessful) ApiResult.Ok(second.body.bytes()) else ApiResult.Fail(second.code, "FOTO_GAGAL", "Foto belum bisa diambil. Coba lagi.")
+                http.newCall(Request.Builder().url(url("/api/v1/receipts/$id/image")).header("authorization", "Bearer $token").build()).execute().use { res ->
+                    when {
+                        res.isSuccessful -> ApiResult.Ok(res.body.bytes())
+                        res.code == 404 -> ApiResult.Fail(404, "TANPA_FOTO", "Foto nota ini sudah tidak ada.")
+                        else -> ApiResult.Fail(res.code, "FOTO_GAGAL", "Foto belum bisa diambil. Coba lagi.")
                     }
                 }
             } catch (_: IOException) {
