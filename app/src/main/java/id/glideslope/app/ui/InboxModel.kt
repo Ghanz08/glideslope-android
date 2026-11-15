@@ -120,6 +120,7 @@ private val REASON_TEXT = mapOf(
     "transfer_internal" to "Sepertinya pindah uang ke akunmu sendiri",
     "akun_tidak_dikenal" to "Akun belum dikenali",
     "duplikat_diduga" to "Mungkin tercatat dua kali",
+    "pengirim_belum_terverifikasi" to "Pengirim belum terverifikasi",
 )
 
 /** The Inbox cards as the screens see them (the tab badge and the screen itself share this). */
