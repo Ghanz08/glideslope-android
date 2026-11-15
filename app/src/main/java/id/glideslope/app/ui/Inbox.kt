@@ -82,7 +82,7 @@ private val cardTime = DateTimeFormatter.ofPattern("EEEE, d MMM · HH.mm", Local
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun InboxScreen(pad: PaddingValues) {
+fun InboxScreen(pad: PaddingValues, onOpenNota: (String) -> Unit = {}) {
     val ctx = LocalContext.current
     val view = LocalView.current
     val dao = remember { Db.get(ctx).sync() }
@@ -95,6 +95,9 @@ fun InboxScreen(pad: PaddingValues) {
     val categories by dao.allCategories().collectAsState(initial = emptyList())
     val problems by dao.outboxProblems().collectAsState(initial = emptyList())
     val waiting by dao.outboxCount().collectAsState(initial = 0)
+    val snapshot by dao.metaFlow("inbox").collectAsState(initial = null)
+    val unlinked = remember(snapshot) { unlinkedReceipts(snapshot) }
+    var pickingNota by remember { mutableStateOf(false) }
     var skipped by remember { mutableStateOf(setOf<String>()) }
     var editing by remember { mutableStateOf<InboxCard?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
@@ -135,6 +138,23 @@ fun InboxScreen(pad: PaddingValues) {
         }
     }
 
+    if (pickingNota) PickDialog(
+        "Nota belum tertaut",
+        unlinked.map { (it.text("id") ?: "") to ((it.text("merchant_name") ?: "Nota tanpa nama") + " · " + rupiah(it.long("total") ?: 0)) },
+        onDismiss = { pickingNota = false },
+    ) { id ->
+        pickingNota = false
+        busy = true
+        scope.launch {
+            when (val r = Api(Settings(ctx), SessionStore(ctx)).send("POST", "/api/v1/receipts/$id/reopen")) {
+                is ApiResult.Ok -> { refreshAll(ctx); onOpenNota(id) }
+                is ApiResult.Fail -> notice = r.message
+                ApiResult.Offline -> notice = "Butuh koneksi untuk meninjau nota."
+            }
+            busy = false
+        }
+    }
+
     Column(Modifier.fillMaxSize().padding(pad).statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -152,6 +172,9 @@ fun InboxScreen(pad: PaddingValues) {
                     warning = true, action = "Buang perubahan ini", onAction = { scope.launch { dao.outboxDone(p.opId); id.glideslope.app.sync.PullWorker.now(ctx) } },
                 )
             }
+        }
+        if (unlinked.isNotEmpty()) Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+            InfoBanner("${unlinked.size} nota sudah dikonfirmasi tetapi belum tertaut ke transaksi.", action = "Tinjau", onAction = { pickingNota = true })
         }
         if (waiting > 0) Text("$waiting perubahan menunggu dikirim", style = MaterialTheme.typography.bodySmall, color = Token.teksPelan, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         if (total > 1) Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -90,6 +90,10 @@ private fun localCard(t: TxEntity, reason: String?) = InboxCard(
  * confirmed or ignored (unless a suggestion is still open) and those settled this session; plus any local review row the
  * list does not know yet. Without it (first run offline): the local review rows, newest first.
  */
+/** F-21.2: confirmed notas that no transaction carries; shown beside the cards and not counted in the badge. */
+fun unlinkedReceipts(snapshot: String?): List<JsonObject> =
+    snapshot?.let { runCatching { Json.parseToJsonElement(it).jsonObject.arr("receipts_unlinked")?.mapNotNull { e -> e as? JsonObject } }.getOrNull() }.orEmpty()
+
 fun buildCards(snapshot: String?, reviewIds: Set<String>, queue: List<TxEntity>, reasonOf: Map<String, String>, dismissed: Set<String>): List<InboxCard> {
     val items = snapshot?.let { runCatching { Json.parseToJsonElement(it).jsonObject.arr("items") }.getOrNull() }
         ?.mapNotNull { (it as? JsonObject)?.let { o -> serverCard(o, dismissed) } }

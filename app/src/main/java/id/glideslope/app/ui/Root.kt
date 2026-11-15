@@ -148,7 +148,7 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
                 settings -> SettingsHub(pad, onBack = { settings = false }, onOpen = { screen = it }, onSignedOut = onSignedOut)
                 tab == Tab.BERANDA -> HomeScreen(pad, onOpenInbox = { tab = Tab.INBOX }, onOpenAset = { tab = Tab.ASET }, onOpenProfile = { settings = true })
                 tab == Tab.TRANSAKSI -> TransactionsScreen(pad, onOpen = { txDetail = it })
-                tab == Tab.INBOX -> InboxScreen(PaddingValues(bottom = barClearance()))
+                tab == Tab.INBOX -> InboxScreen(PaddingValues(bottom = barClearance()), onOpenNota = { screen = "nota/$it" })
                 tab == Tab.ASET -> AssetsScreen(pad, onOpenAsset = { screen = "aset/$it" }, onAccounts = { screen = "akun" })
                 else -> ComingNext(pad, tab.label)
             }

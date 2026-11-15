@@ -61,4 +61,13 @@ class InboxModelTest {
         val cards = buildCards(null, setOf("x", "y"), listOf(entity("x"), entity("y")), emptyMap(), emptySet())
         assertEquals(listOf("x", "y"), cards.map { it.key })
     }
+
+    @Test
+    fun `unlinked receipts are read from the snapshot and ignored when absent or malformed`() {
+        val snap = """{"items":[],"receipts_unlinked":[{"id":"r1","merchant_name":"Nota Uji","total":31000,"has_image":false}]}"""
+        assertEquals(listOf("r1"), unlinkedReceipts(snap).map { it.text("id") })
+        assertEquals(emptyList<String>(), unlinkedReceipts("""{"items":[]}""").map { it.text("id") })
+        assertEquals(emptyList<String>(), unlinkedReceipts("bukan json").map { it.text("id") })
+        assertEquals(emptyList<String>(), unlinkedReceipts(null).map { it.text("id") })
+    }
 }
