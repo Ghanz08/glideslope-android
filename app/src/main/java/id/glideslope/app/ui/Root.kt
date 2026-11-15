@@ -140,7 +140,7 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
     var txDetail by rememberSaveable { mutableStateOf<String?>(null) }
     // screens opened from "Lainnya" or the "+" sheet: analitik, anggaran, …, nota, nota/<id>, notifikasi
     var screen by rememberSaveable { mutableStateOf<String?>(null) }
-    val reviewCount by remember { Db.get(activity).sync().needsReviewCount() }.collectAsState(initial = 0)
+    val reviewCount = rememberInboxCards().size // the same cards (and count) the web shows
     LaunchedEffect(Unit) { PullWorker.now(activity); PullWorker.schedule(activity) }
     BackHandler(enabled = settings) { settings = false }
     screen?.let { dest ->
@@ -154,7 +154,7 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
             }
         }
         BackHandler { back() }
-        ProvidePrivacy {
+        ProvidePrivacy { Refreshable {
             when {
                 dest == "analitik" -> AnalyticsScreen(onBack = back)
                 dest == "anggaran" -> BudgetScreen(onBack = back)
@@ -175,12 +175,12 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
                 dest == "nota" -> ScanScreen(onBack = back, onOpen = { screen = "nota/$it" })
                 dest.startsWith("nota/") -> ReceiptReviewScreen(dest.removePrefix("nota/"), onBack = back, onDone = { screen = null; tab = Tab.TRANSAKSI }, onSplit = { screen = "bagi/$it" })
             }
-        }
+        } }
         return
     }
     txDetail?.let { id ->
         BackHandler { txDetail = null }
-        ProvidePrivacy { TxDetailScreen(id, onBack = { txDetail = null }, onSplit = { txDetail = null; screen = "bagi/$it" }) }
+        ProvidePrivacy { Refreshable { TxDetailScreen(id, onBack = { txDetail = null }, onSplit = { txDetail = null; screen = "bagi/$it" }) } }
         return
     }
     entry?.let { kind ->
@@ -193,7 +193,7 @@ private fun Tabs(activity: MainActivity, onSignedOut: () -> Unit) {
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().background(Token.latar)) {
             val pad = PaddingValues(0.dp)
             val haze = remember { dev.chrisbanes.haze.HazeState() }
-            androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().hazeSource(haze)) {
+            Refreshable(Modifier.hazeSource(haze)) {
             when {
                 settings -> SettingsHub(pad, onBack = { settings = false }, onOpen = { screen = it }, onSignedOut = onSignedOut)
                 tab == Tab.BERANDA -> HomeScreen(pad, onOpenInbox = { tab = Tab.INBOX }, onOpenAset = { tab = Tab.ASET }, onOpenProfile = { settings = true })

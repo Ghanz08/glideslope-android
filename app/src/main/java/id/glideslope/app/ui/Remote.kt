@@ -78,6 +78,7 @@ fun RemoteScreen(
     content: @Composable ColumnScope.(data: JsonElement, reload: () -> Unit) -> Unit,
 ) {
     val (state, reload) = rememberRemote(path)
+    androidx.compose.runtime.DisposableEffect(path) { PageRefresh.reload = reload; onDispose { PageRefresh.reload = null } }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(Modifier.padding(start = 4.dp, top = 8.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Ic.chevronLeft, null, tint = Token.teks, modifier = Modifier.size(48.dp).clickable(onClick = onBack).padding(12.dp).semantics { contentDescription = "Kembali" })

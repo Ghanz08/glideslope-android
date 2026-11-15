@@ -18,15 +18,25 @@ import id.glideslope.app.data.MetaEntity
 import id.glideslope.app.data.SessionStore
 import java.util.concurrent.TimeUnit
 
+/** One pull whose outcome is also written to `sync_error`, so every screen shows the same reason (and clears it on success). */
+suspend fun pullAndRecord(ctx: Context): PullOutcome {
+    val db = Db.get(ctx)
+    val outcome = Syncer(db, Api(Settings(ctx), SessionStore(ctx))).pull()
+    when (outcome) {
+        PullOutcome.Done -> db.sync().meta(MetaEntity("sync_error", ""))
+        is PullOutcome.Failed -> db.sync().meta(MetaEntity("sync_error", "${outcome.code}|${outcome.message}"))
+        PullOutcome.Offline -> Unit
+    }
+    return outcome
+}
+
 class PullWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
         val ctx = applicationContext
         if (SessionStore(ctx).get()?.aal != "aal2") return Result.success() // signed out or waiting for the code
-        val db = Db.get(ctx)
-        return when (val r = Syncer(db, Api(Settings(ctx), SessionStore(ctx))).pull()) {
-            PullOutcome.Done -> { db.sync().meta(MetaEntity("sync_error", "")); Result.success() }
+        return when (pullAndRecord(ctx)) {
             PullOutcome.Offline -> Result.retry()
-            is PullOutcome.Failed -> { db.sync().meta(MetaEntity("sync_error", "${r.code}|${r.message}")); Result.success() }
+            else -> Result.success()
         }
     }
 

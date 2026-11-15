@@ -23,39 +23,44 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.util.concurrent.TimeUnit
 
+/** Sends the outbox in order. true = nothing left to retry; false = offline or a transient failure, the rest stays queued. */
+suspend fun pushOutbox(ctx: Context): Boolean {
+    val db = Db.get(ctx)
+    val dao = db.sync()
+    val api = Api(Settings(ctx), SessionStore(ctx))
+    while (true) {
+        val batch = dao.outboxPending()
+        if (batch.isEmpty()) return true
+        val answer = when (val r = api.push(batch)) {
+            is ApiResult.Ok -> r.value
+            ApiResult.Offline -> return false
+            is ApiResult.Fail -> return !(r.status >= 500 || r.status == 429)
+        }
+        var stop = false
+        db.withTransaction {
+            for (res in answer["results"]!!.jsonArray.map { it.jsonObject }) {
+                val opId = res["op_id"]!!.jsonPrimitive.content
+                val op = batch.first { it.opId == opId }
+                when (res["status"]!!.jsonPrimitive.content) {
+                    "applied", "duplicate" -> {
+                        op.localIds.split(',').filter { it.isNotBlank() }.forEach { dao.deleteTx(it) }
+                        dao.outboxDone(opId)
+                    }
+                    "rejected" -> dao.outboxMark(opId, "ditolak", res["error"]?.takeIf { it !is JsonNull }?.jsonObject?.get("message")?.jsonPrimitive?.content)
+                    "conflict" -> dao.outboxMark(opId, "konflik", "Diubah juga di laptop. Pilih versi yang dipakai.")
+                    else -> stop = true // retry: keep this and everything after it queued
+                }
+            }
+        }
+        if (stop) return false
+    }
+}
+
 class PushWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
         val ctx = applicationContext
         if (SessionStore(ctx).get()?.aal != "aal2") return Result.success()
-        val db = Db.get(ctx)
-        val dao = db.sync()
-        val api = Api(Settings(ctx), SessionStore(ctx))
-        while (true) {
-            val batch = dao.outboxPending()
-            if (batch.isEmpty()) break
-            val answer = when (val r = api.push(batch)) {
-                is ApiResult.Ok -> r.value
-                ApiResult.Offline -> return Result.retry()
-                is ApiResult.Fail -> return if (r.status >= 500 || r.status == 429) Result.retry() else Result.success()
-            }
-            var stop = false
-            db.withTransaction {
-                for (res in answer["results"]!!.jsonArray.map { it.jsonObject }) {
-                    val opId = res["op_id"]!!.jsonPrimitive.content
-                    val op = batch.first { it.opId == opId }
-                    when (res["status"]!!.jsonPrimitive.content) {
-                        "applied", "duplicate" -> {
-                            op.localIds.split(',').filter { it.isNotBlank() }.forEach { dao.deleteTx(it) }
-                            dao.outboxDone(opId)
-                        }
-                        "rejected" -> dao.outboxMark(opId, "ditolak", res["error"]?.takeIf { it !is JsonNull }?.jsonObject?.get("message")?.jsonPrimitive?.content)
-                        "conflict" -> dao.outboxMark(opId, "konflik", "Diubah juga di laptop. Pilih versi yang dipakai.")
-                        else -> stop = true // retry: keep this and everything after it queued
-                    }
-                }
-            }
-            if (stop) return Result.retry()
-        }
+        if (!pushOutbox(ctx)) return Result.retry()
         PullWorker.now(ctx)
         return Result.success()
     }

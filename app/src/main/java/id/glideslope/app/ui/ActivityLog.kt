@@ -92,6 +92,7 @@ fun ActivityLogScreen(onBack: () -> Unit) {
         busy = false
     }
     LaunchedEffect(kategori, debug) { load(null) }
+    androidx.compose.runtime.DisposableEffect(kategori, debug) { PageRefresh.reload = { scope.launch { load(null) } }; onDispose { PageRefresh.reload = null } }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(Modifier.padding(start = 4.dp, top = 8.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {

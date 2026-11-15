@@ -101,7 +101,7 @@ fun HomeScreen(pad: PaddingValues, onOpenInbox: () -> Unit, onOpenAset: () -> Un
     val syncedAt by dao.metaFlow("synced_at").collectAsState(initial = null)
     val syncError by dao.metaFlow("sync_error").collectAsState(initial = null)
     val accounts by dao.activeAccounts().collectAsState(initial = emptyList())
-    val reviewCount by dao.needsReviewCount().collectAsState(initial = 0)
+    val reviewCount = rememberInboxCards().size
     val s = rememberSummary(summaryJson)
     val today = LocalDate.now(WIB)
     val closed = remember { mutableStateListOf<String>() }

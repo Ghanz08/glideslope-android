@@ -60,14 +60,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import id.glideslope.app.Settings
 import id.glideslope.app.data.AccountEntity
+import id.glideslope.app.data.Api
+import id.glideslope.app.data.ApiResult
+import id.glideslope.app.data.SessionStore
+import id.glideslope.app.sync.refreshAll
 import id.glideslope.app.data.CategoryEntity
 import id.glideslope.app.data.Db
-import id.glideslope.app.data.TxEntity
 import id.glideslope.app.data.Writes
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -78,15 +80,6 @@ import kotlin.math.roundToInt
 private val WIB = ZoneId.of("Asia/Jakarta")
 private val cardTime = DateTimeFormatter.ofPattern("EEEE, d MMM · HH.mm", Locale.forLanguageTag("id"))
 
-private val REASONS = mapOf(
-    "merchant_baru" to "Merchant baru: pilih kategori sekali, berikutnya otomatis",
-    "kepercayaan_rendah" to "Belum yakin dengan hasil bacaan",
-    "nominal_besar" to "Nominal besar, periksa dulu",
-    "transfer_internal" to "Sepertinya pindah uang ke akunmu sendiri",
-    "akun_tidak_dikenal" to "Akun belum dikenali",
-    "duplikat_diduga" to "Mungkin tercatat dua kali",
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InboxScreen(pad: PaddingValues) {
@@ -95,42 +88,62 @@ fun InboxScreen(pad: PaddingValues) {
     val dao = remember { Db.get(ctx).sync() }
     val writes = remember { Writes(ctx) }
     val scope = rememberCoroutineScope()
+    val cards = rememberInboxCards()
     val queue by dao.reviewQueue().collectAsState(initial = emptyList())
+    val queueOf = remember(queue) { queue.associateBy { it.id } }
     val accounts by dao.allAccounts().collectAsState(initial = emptyList())
     val categories by dao.allCategories().collectAsState(initial = emptyList())
-    val queueIds = queue.map { it.id }
-    val rows by remember(queueIds) { dao.rowsByKey("transactions", queueIds) }.collectAsState(initial = emptyList())
     val problems by dao.outboxProblems().collectAsState(initial = emptyList())
     val waiting by dao.outboxCount().collectAsState(initial = 0)
     var skipped by remember { mutableStateOf(setOf<String>()) }
-    var editing by remember { mutableStateOf<TxEntity?>(null) }
+    var editing by remember { mutableStateOf<InboxCard?>(null) }
+    var notice by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
     var total by remember { mutableIntStateOf(0) }
-    val visible = queue.filter { it.id !in skipped }
+    val visible = cards.filter { it.key !in skipped }
     if (visible.size > total) total = visible.size
     val done = (total - visible.size).coerceAtLeast(0)
-    val reasonOf = remember(rows) {
-        rows.mapNotNull { runCatching { Json.parseToJsonElement(it).jsonObject }.getOrNull() }
-            .associate { (it.text("id") ?: "") to (it.text("review_reason") ?: "") }
-    }
     val current = visible.firstOrNull()
     val next = visible.getOrNull(1)
     val accountOf = accounts.associateBy { it.id }
     val categoryOf = categories.associateBy { it.id }
 
-    fun needsEdit(tx: TxEntity, cat: String? = tx.categoryId, acc: String? = tx.accountId) =
-        (tx.kind == "expense" && cat == null) || accountOf[acc]?.isSystem != false
+    fun needsEdit(c: InboxCard, cat: String? = c.categoryId, acc: String? = c.accountId) =
+        (c.kind == "expense" && cat == null) || accountOf[acc]?.isSystem != false
 
-    fun confirm(tx: TxEntity, cat: String? = tx.categoryId, acc: String? = tx.accountId) {
-        if (needsEdit(tx, cat, acc)) { editing = tx; return }
+    fun confirm(c: InboxCard, cat: String? = c.categoryId, acc: String? = c.accountId) {
+        if (needsEdit(c, cat, acc)) { editing = c; return }
         view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-        scope.launch { writes.confirmReview(tx, cat, acc) }
+        scope.launch { c.ids.forEach { id -> queueOf[id]?.let { writes.confirmReview(it, cat, acc) } } }
+    }
+
+    // a suggestion is decided on the server, so it needs a connection; the card leaves at once and the next pull confirms it
+    fun settle(c: InboxCard, accept: Boolean) {
+        val id = c.proposals.firstOrNull()?.text("id") ?: return
+        busy = true
+        scope.launch {
+            when (val r = Api(Settings(ctx), SessionStore(ctx)).send("POST", "/api/v1/proposals/$id/" + if (accept) "accept" else "reject")) {
+                is ApiResult.Ok -> {
+                    view.performHapticFeedback(if (accept) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.REJECT)
+                    InboxSession.dismissed += id
+                    refreshAll(ctx)
+                }
+                is ApiResult.Fail -> notice = r.message
+                ApiResult.Offline -> notice = "Butuh koneksi untuk menerima atau menolak saran."
+            }
+            busy = false
+        }
     }
 
     Column(Modifier.fillMaxSize().padding(pad).statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Inbox", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+            Column(Modifier.weight(1f)) {
+                Text("Inbox", style = MaterialTheme.typography.headlineSmall)
+                SyncLine(onRetry = { scope.launch { refreshAll(ctx) } })
+            }
             if (total > 0 && current != null) Text("${done + 1} dari $total", style = MaterialTheme.typography.bodyLarge, color = Token.teksRedup)
         }
+        notice?.let { Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { InfoBanner(it, warning = true, onClose = { notice = null }) } }
         // F-14.2: refusals and conflicts are never dropped silently
         problems.forEach { p ->
             Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
@@ -147,11 +160,12 @@ fun InboxScreen(pad: PaddingValues) {
             }
         }
         if (current == null) {
-            Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+            // scrollable even when empty, so a pull down still refreshes
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Ic.circleCheck, null, tint = Token.masuk, modifier = Modifier.size(56.dp))
                 Spacer(Modifier.height(16.dp))
                 Text("Semua sudah ditinjau", style = MaterialTheme.typography.titleLarge)
-                Text("Transaksi baru dari email dan notifikasi akan muncul di sini.", color = Token.teksRedup, modifier = Modifier.padding(top = 8.dp))
+                Text("Transaksi baru dari email dan notifikasi akan muncul di sini. Tarik ke bawah untuk menyegarkan.", color = Token.teksRedup, modifier = Modifier.padding(top = 8.dp))
                 if (skipped.isNotEmpty()) Text(
                     "Tampilkan lagi ${skipped.size} yang dilewati", color = Token.aksenTeks, style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(top = 24.dp).clickable { skipped = emptySet(); total = 0 }.padding(12.dp),
@@ -159,50 +173,54 @@ fun InboxScreen(pad: PaddingValues) {
             }
             return@Column
         }
+        val isSuggestion = current.proposals.isNotEmpty()
+        val canIgnore = current.ids.any { it in queueOf }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp)) {
             SwipeCard(
-                key = current.id,
+                key = current.key,
                 // a confirm that still needs a category or account opens the sheet and the card springs back instead of flying off
-                canConfirm = { !needsEdit(current).also { if (it) editing = current } },
-                onConfirm = { confirm(current) },
-                onSkip = { skipped = skipped + current.id },
+                canConfirm = { isSuggestion || !needsEdit(current).also { if (it) editing = current } },
+                onConfirm = { if (isSuggestion) settle(current, true) else confirm(current) },
+                onSkip = { skipped = skipped + current.key },
             ) {
-                ReviewDetails(current, accountOf[current.accountId], categoryOf[current.categoryId], reasonOf[current.id], onEdit = { editing = current })
+                ReviewDetails(current, accountOf[current.accountId], categoryOf[current.categoryId], onEdit = { editing = current })
             }
             next?.let {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp)).background(Token.permukaan.copy(alpha = 0.7f))
                         .padding(horizontal = 20.dp, vertical = 10.dp),
                 ) {
-                    Text("Berikutnya · ${it.merchantRaw ?: "Transaksi"}", style = MaterialTheme.typography.bodyMedium, color = Token.teksRedup, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("Berikutnya · ${it.title}", style = MaterialTheme.typography.bodyMedium, color = Token.teksRedup, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text((if (it.direction == "in") "+" else "−") + rupiah(it.amount), style = MaterialTheme.typography.bodyMedium, color = Token.teksRedup)
                 }
             }
         }
         Column(Modifier.padding(16.dp)) {
             Button(
-                onClick = { confirm(current) },
+                enabled = !busy,
+                onClick = { if (isSuggestion) settle(current, true) else confirm(current) },
                 colors = ButtonDefaults.buttonColors(containerColor = Token.aksen),
                 modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-            ) { Text("Konfirmasi", style = MaterialTheme.typography.labelLarge.copy(fontSize = 17.sp)) }
+            ) { Text(if (isSuggestion) "Terima saran" else "Konfirmasi", style = MaterialTheme.typography.labelLarge.copy(fontSize = 17.sp)) }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                TextAction("Ubah", Modifier.weight(1f)) { editing = current }
-                TextAction("Lewati", Modifier.weight(1f)) { skipped = skipped + current.id }
-                TextAction("Abaikan", Modifier.weight(1f)) {
+                if (isSuggestion) TextAction("Tolak saran", Modifier.weight(1f)) { if (!busy) settle(current, false) }
+                else TextAction("Ubah", Modifier.weight(1f)) { editing = current }
+                TextAction("Lewati", Modifier.weight(1f)) { skipped = skipped + current.key }
+                if (canIgnore) TextAction("Abaikan", Modifier.weight(1f)) {
                     view.performHapticFeedback(HapticFeedbackConstants.REJECT)
-                    scope.launch { writes.moveReview(current, "ignore") }
+                    scope.launch { current.ids.forEach { id -> queueOf[id]?.let { writes.moveReview(it, "ignore") } } }
                 }
             }
         }
     }
 
-    editing?.let { tx ->
+    editing?.let { card ->
         ModalBottomSheet(onDismissRequest = { editing = null }, containerColor = Token.permukaan) {
             EditReview(
-                tx, accounts.filter { !it.isSystem && it.archivedAt == null },
-                categories.filter { it.kind == (if (tx.direction == "in") "income" else "expense") },
-                onConfirm = { cat, acc -> editing = null; confirm(tx, cat, acc) },
-                onTransfer = { to -> editing = null; scope.launch { writes.convertToTransfer(tx, to) } },
+                card, accounts.filter { !it.isSystem && it.archivedAt == null },
+                categories.filter { it.kind == (if (card.direction == "in") "income" else "expense") },
+                onConfirm = { cat, acc -> editing = null; confirm(card, cat, acc) },
+                onTransfer = { to -> editing = null; scope.launch { card.ids.forEach { id -> queueOf[id]?.let { writes.convertToTransfer(it, to) } } } },
             )
         }
     }
@@ -277,28 +295,33 @@ private fun SwipeCard(key: String, canConfirm: () -> Boolean, onConfirm: () -> U
 }
 
 @Composable
-private fun ReviewDetails(tx: TxEntity, account: AccountEntity?, category: CategoryEntity?, reason: String?, onEdit: () -> Unit) {
-    val time = runCatching { cardTime.format(OffsetDateTime.parse(tx.occurredAt).atZoneSameInstant(WIB)) }.getOrDefault("")
+private fun ReviewDetails(card: InboxCard, account: AccountEntity?, category: CategoryEntity?, onEdit: () -> Unit) {
+    val time = runCatching { cardTime.format(OffsetDateTime.parse(card.occurredAt).atZoneSameInstant(WIB)) }.getOrDefault("")
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        IconTile(if (tx.direction == "in") Ic.arrowDownLeft else Ic.arrowUpRight, bg = Token.aksenLembut, fg = Token.aksenTeks, size = 56.dp)
+        IconTile(if (card.direction == "in") Ic.arrowDownLeft else Ic.arrowUpRight, bg = Token.aksenLembut, fg = Token.aksenTeks, size = 56.dp)
         Column(Modifier.weight(1f)) {
-            Text(tx.merchantRaw ?: "Transaksi", style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(card.title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(listOfNotNull(time, account?.takeIf { !it.isSystem }?.name).joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = Token.teksRedup)
         }
     }
     Row(Modifier.padding(vertical = 20.dp), verticalAlignment = Alignment.Bottom) {
-        Text(if (tx.direction == "in") "+" else "−", style = MaterialTheme.typography.displaySmall, color = Token.teks)
+        Text(if (card.direction == "in") "+" else "−", style = MaterialTheme.typography.displaySmall, color = Token.teks)
         Text("Rp", style = MaterialTheme.typography.titleLarge, color = Token.teksPelan, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp))
-        Text(rupiah(tx.amount).removePrefix("Rp "), style = MaterialTheme.typography.displaySmall.copy(fontSize = 44.sp, lineHeight = 52.sp))
+        Text(rupiah(card.amount).removePrefix("Rp "), style = MaterialTheme.typography.displaySmall.copy(fontSize = 44.sp, lineHeight = 52.sp))
     }
-    reason?.let { REASONS[it] }?.let {
+    card.subtitle?.let {
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Token.peringatanLatar).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(Ic.info, null, tint = Token.peringatan, modifier = Modifier.size(18.dp))
             Text(it, style = MaterialTheme.typography.bodyMedium, color = Token.peringatan)
         }
     }
-    DetailRow("Akun", account?.takeIf { !it.isSystem }?.name ?: "Pilih akun", onEdit)
-    if (tx.kind != "transfer") DetailRow("Kategori", category?.name ?: "Pilih kategori", onEdit)
+    val p = card.proposals.firstOrNull()
+    p?.obj("receivable")?.long("remaining")?.let { DetailRow("Sisa", rupiah(it)) }
+    p?.obj("other")?.let { o -> DetailRow("Pasangan", (o.text("merchant_raw") ?: "Transaksi") + " · " + rupiah(o.long("amount") ?: 0)) }
+    if (card.proposals.isEmpty()) {
+        DetailRow("Akun", account?.takeIf { !it.isSystem }?.name ?: "Pilih akun", onEdit)
+        if (card.kind != "transfer") DetailRow("Kategori", category?.name ?: "Pilih kategori", onEdit)
+    }
 }
 
 @Composable
@@ -316,7 +339,7 @@ fun DetailRow(label: String, value: String, onClick: (() -> Unit)? = null) {
 
 @Composable
 private fun EditReview(
-    tx: TxEntity, accounts: List<AccountEntity>, categories: List<CategoryEntity>,
+    tx: InboxCard, accounts: List<AccountEntity>, categories: List<CategoryEntity>,
     onConfirm: (String?, String?) -> Unit, onTransfer: (String) -> Unit,
 ) {
     var cat by remember { mutableStateOf(tx.categoryId) }
@@ -327,7 +350,7 @@ private fun EditReview(
         Text("Ubah sebelum konfirmasi", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp))
         Text("Akun", style = MaterialTheme.typography.labelMedium, color = Token.teksRedup, modifier = Modifier.padding(horizontal = 16.dp))
         ChipRow(accounts, { it.id == acc }, AccountEntity::name) { acc = it.id }
-        if (tx.direction == "out" && tx.kind == "expense") {
+        if (tx.direction == "out" && tx.kind == "expense" && tx.ids.size == 1) {
             Box(Modifier.padding(horizontal = 16.dp)) { Segmented(listOf("Pengeluaran", "Pindah ke akunku"), if (asTransfer) 1 else 0) { asTransfer = it == 1 } }
         }
         if (asTransfer) {

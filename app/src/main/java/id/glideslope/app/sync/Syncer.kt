@@ -68,6 +68,12 @@ class Syncer(private val db: Db, private val api: Api) {
             is ApiResult.Fail -> return PullOutcome.Failed(s.code, s.message)
             ApiResult.Offline -> return PullOutcome.Offline
         }
+        // F-14.9: the Inbox the server computed (folded merchants, suggestions, order), so the phone and the web show the same list
+        when (val i = api.get("/api/v1/layar/inbox")) {
+            is ApiResult.Ok -> dao.meta(MetaEntity("inbox", i.value.toString()))
+            is ApiResult.Fail -> return PullOutcome.Failed(i.code, i.message)
+            ApiResult.Offline -> return PullOutcome.Offline
+        }
         dao.meta(MetaEntity("synced_at", System.currentTimeMillis().toString()))
         return PullOutcome.Done
     }

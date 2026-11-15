@@ -106,6 +106,9 @@ interface SyncDao {
     @Query("select count(*) from transactions where status = 'needs_review' and deletedAt is null")
     fun needsReviewCount(): Flow<Int>
 
+    @Query("select id from transactions where status = 'needs_review' and deletedAt is null")
+    fun reviewIds(): Flow<List<String>>
+
     @Query("select * from accounts where not isSystem and archivedAt is null order by name")
     fun activeAccounts(): Flow<List<AccountEntity>>
 
