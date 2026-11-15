@@ -231,6 +231,7 @@ fun PlannedScreen(onBack: () -> Unit) = RemoteScreen("Rencana pengeluaran", "/ap
     var form by remember { mutableStateOf<JsonObject?>(null) } // an existing plan, or an empty object for a new one
     var adding by remember { mutableStateOf(false) }
     var acting by remember { mutableStateOf<JsonObject?>(null) }
+    var deleting by remember { mutableStateOf<JsonObject?>(null) }
     Button(onClick = { adding = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("+ Tambah rencana") }
     w.message?.let { InfoBanner(it) }
     GsCard(padding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 12.dp)) {
@@ -271,7 +272,13 @@ fun PlannedScreen(onBack: () -> Unit) = RemoteScreen("Rencana pengeluaran", "/ap
     acting?.let { p ->
         PickDialog(p.text("label") ?: "Rencana", listOf("ubah" to "Ubah", "hapus" to "Hapus semua"), onDismiss = { acting = null }) { act ->
             acting = null
-            if (act == "ubah") form = p else w.call("DELETE", "/api/v1/planned/${p.text("id")}", okText = "Rencana dihapus.") { reload() }
+            if (act == "ubah") form = p else deleting = p
+        }
+    }
+    deleting?.let { p ->
+        ConfirmDialog("Hapus rencana?", "${p.text("label") ?: "Rencana ini"} dihapus beserta semua kemunculannya.", "Hapus", onDismiss = { deleting = null }) {
+            deleting = null
+            w.call("DELETE", "/api/v1/planned/${p.text("id")}", okText = "Rencana dihapus.") { reload() }
         }
     }
 }
@@ -511,6 +518,19 @@ fun PickDialog(title: String, options: List<Pair<String, String>>, onDismiss: ()
         title = { Text(title) },
         text = { Column { options.forEach { (id, name) -> LineRow(name, onClick = { onPick(id) }) } } },
         confirmButton = {},
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Batal") } },
+    )
+}
+
+/** A destructive action asks first: the title names it, the body says what is affected, and a tap outside means Batal. */
+@Composable
+fun ConfirmDialog(title: String, body: String, verb: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Token.permukaan,
+        title = { Text(title) },
+        text = { Text(body) },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = onConfirm) { Text(verb, color = Token.galat) } },
         dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Batal") } },
     )
 }

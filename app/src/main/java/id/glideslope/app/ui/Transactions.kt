@@ -186,6 +186,7 @@ fun TxDetailScreen(id: String, onBack: () -> Unit, onSplit: (String) -> Unit = {
     val evidenceRows by remember(id) { dao.rowsMentioning("transaction_evidence", id) }.collectAsState(initial = emptyList())
     var editing by remember { mutableStateOf(false) }
     var lending by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     var lendError by remember { mutableStateOf<String?>(null) }
     val t = tx ?: run { Column(Modifier.fillMaxSize()) { BackBar("Transaksi", onBack) }; return }
     val json = { s: String -> runCatching { Json.parseToJsonElement(s).jsonObject }.getOrNull() }
@@ -241,7 +242,7 @@ fun TxDetailScreen(id: String, onBack: () -> Unit, onSplit: (String) -> Unit = {
                     OutlinedButton(enabled = !sw.busy, onClick = { startSplitFromTransaction(sw, t.id, onSplit) }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Bagi tagihan") }
                 }
                 OutlinedButton(
-                    onClick = { scope.launch { writes.deleteTx(t) } },
+                    onClick = { confirmDelete = true },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).semantics { contentDescription = "Hapus transaksi" },
                 ) { Text("Hapus", color = Token.galat) }
             } else {
@@ -249,6 +250,11 @@ fun TxDetailScreen(id: String, onBack: () -> Unit, onSplit: (String) -> Unit = {
             }
         }
     }
+    if (confirmDelete) ConfirmDialog(
+        "Hapus transaksi?",
+        "${t.merchantRaw ?: "Transaksi ini"} · ${rupiah(t.amount)}. Saldo dihitung ulang. Kamu bisa memulihkannya dari halaman ini.",
+        "Hapus", onDismiss = { confirmDelete = false },
+    ) { confirmDelete = false; scope.launch { writes.deleteTx(t) } }
     if (lending) {
         val out = t.direction == "out"
         val fs = listOf(

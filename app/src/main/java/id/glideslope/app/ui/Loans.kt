@@ -78,6 +78,7 @@ fun ContactScreen(id: String, onBack: () -> Unit) = RemoteScreen("Utang-piutang"
     val scope = rememberCoroutineScope()
     var message by remember { mutableStateOf<String?>(null) }
     var paying by remember { mutableStateOf<JsonObject?>(null) }
+    var cancelling by remember { mutableStateOf<JsonObject?>(null) }
     var accounts by remember { mutableStateOf<List<JsonObject>>(emptyList()) }
     val loans = c.list("loans")
     val payments = c.list("payments")
@@ -139,9 +140,15 @@ fun ContactScreen(id: String, onBack: () -> Unit) = RemoteScreen("Utang-piutang"
                 }
                 if (l.text("origin") == "pinjaman" && payments.none { it.text("receivable_id") == l.text("id") }) {
                     Text("Batalkan pinjaman", style = MaterialTheme.typography.labelLarge, color = Token.aksenTeks,
-                        modifier = Modifier.clickable { call("DELETE", "/api/v1/loans/${l.text("id")}", ok = "Pinjaman dibatalkan; transaksinya kembali ke Inbox.") }.padding(vertical = 12.dp))
+                        modifier = Modifier.clickable { cancelling = l }.padding(vertical = 12.dp))
                 }
             }
+        }
+    }
+    cancelling?.let { l ->
+        ConfirmDialog("Batalkan pinjaman?", "Transaksinya kembali ke Inbox sebagai transaksi biasa.", "Batalkan pinjaman", onDismiss = { cancelling = null }) {
+            cancelling = null
+            call("DELETE", "/api/v1/loans/${l.text("id")}", ok = "Pinjaman dibatalkan; transaksinya kembali ke Inbox.")
         }
     }
     paying?.let { l ->

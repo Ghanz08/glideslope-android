@@ -180,7 +180,12 @@ fun SplitScreen(id: String, onBack: () -> Unit) = RemoteScreen("Bagi tagihan", "
             }, modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)) { Text("Kirim via WhatsApp ke ${p.text("name")}") }
         }
     }
-    if (shared && sp.text("status") == "shared") OutlinedButton(onClick = { w.call("POST", "/api/v1/splits/$id/cancel", okText = "Tagihan dibatalkan.") { reload() } }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Batalkan tagihan") }
+    var confirmCancel by remember { mutableStateOf(false) }
+    if (shared && sp.text("status") == "shared") OutlinedButton(onClick = { confirmCancel = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Batalkan tagihan") }
+    if (confirmCancel) ConfirmDialog("Batalkan tagihan?", "Piutang dari tagihan ini ikut dibatalkan.", "Batalkan tagihan", onDismiss = { confirmCancel = false }) {
+        confirmCancel = false
+        w.call("POST", "/api/v1/splits/$id/cancel", okText = "Tagihan dibatalkan.") { reload() }
+    }
 }
 
 private fun Modifier.clickableNoRipple(onClick: () -> Unit) = this.then(Modifier.clickable(onClick = onClick))
