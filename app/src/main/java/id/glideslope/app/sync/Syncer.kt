@@ -74,6 +74,12 @@ class Syncer(private val db: Db, private val api: Api) {
             is ApiResult.Fail -> return PullOutcome.Failed(i.code, i.message)
             ApiResult.Offline -> return PullOutcome.Offline
         }
+        // F-16.22 / F-14.10: the Beranda the server computed (runway history, planned steps), cached for the chart and offline reading
+        when (val b = api.get("/api/v1/layar/beranda")) {
+            is ApiResult.Ok -> dao.meta(MetaEntity("beranda", b.value.toString()))
+            is ApiResult.Fail -> return PullOutcome.Failed(b.code, b.message)
+            ApiResult.Offline -> return PullOutcome.Offline
+        }
         dao.meta(MetaEntity("synced_at", System.currentTimeMillis().toString()))
         return PullOutcome.Done
     }
