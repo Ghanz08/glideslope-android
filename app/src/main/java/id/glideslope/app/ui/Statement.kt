@@ -109,7 +109,7 @@ fun StatementScreen(onBack: () -> Unit) {
     // counterpart name -> (action, target id); decided in the preview and remembered by the server for the next import
     val cps = remember { mutableStateMapOf<String, Pair<String, String>>() }
     var cpPick by remember { mutableStateOf<String?>(null) }
-    var cpTarget by remember { mutableStateOf<Pair<String, String>?>(null) } // name to action (account|asset)
+    var cpTarget by remember { mutableStateOf<Pair<String, String>?>(null) } // name to action (account)
 
     fun fail(r: ApiResult<*>): String? = when (r) {
         is ApiResult.Fail -> { needPassword = r.code == "PASSWORD_DIBUTUHKAN" || r.code == "PASSWORD_SALAH"; r.message }
@@ -313,19 +313,18 @@ fun StatementScreen(onBack: () -> Unit) {
                 if (counterparts.isNotEmpty() && accountId != null) {
                     GsCard {
                         Text("Pindah kantong dan RDN", style = MaterialTheme.typography.titleMedium)
-                        Text("Baris ini memindahkan uang Anda sendiri, jadi dicatat sebagai transfer atau investasi, bukan pengeluaran. Pilihan diingat untuk impor berikutnya.", style = MaterialTheme.typography.bodySmall, color = Token.teksRedup)
+                        Text("Baris ini memindahkan uang Anda sendiri, jadi dicatat sebagai transfer antar akun, bukan pengeluaran. RDN sekuritas adalah kas, jadi ditautkan ke akun RDN Anda; aset Anda tidak berubah. Pilihan diingat untuk impor berikutnya.", style = MaterialTheme.typography.bodySmall, color = Token.teksRedup)
                         counterparts.forEach { c ->
                             val name = c.text("name").orEmpty()
                             val (action, target) = cps[name] ?: ("inbox" to "")
                             val targetName = when (action) {
                                 "account" -> accounts.firstOrNull { it.text("id") == target }?.text("name") ?: "pilih akun"
-                                "asset" -> p.list("assets").firstOrNull { it.text("id") == target }?.text("name") ?: "pilih aset"
                                 else -> null
                             }
                             HorizontalDivider(color = Token.garis)
                             LineRow(
                                 name, "${c.long("rows") ?: 0} baris · ${if (c.text("kind") == "rdn") "RDN sekuritas" else "kantong Jago"}${if (c.flag("saved")) " · diingat" else ""}",
-                                when (action) { "pocket_new" -> "Kantong baru"; "account" -> "→ $targetName"; "asset" -> "→ $targetName"; "asset_new" -> "Aset baru"; else -> "Inbox" },
+                                when (action) { "pocket_new" -> "Kantong baru"; "account" -> "→ $targetName"; else -> "Inbox" },
                                 valueColor = Token.aksenTeks, onClick = { cpPick = name },
                             )
                         }
@@ -373,17 +372,16 @@ fun StatementScreen(onBack: () -> Unit) {
 
         cpPick?.let { name ->
             val kind = counterparts(p).firstOrNull { it.text("name") == name }?.text("kind")
-            val opts = if (kind == "rdn") listOf("asset" to "Tautkan ke aset…", "asset_new" to "Buat aset baru", "inbox" to "Biarkan di Inbox")
+            val opts = if (kind == "rdn") listOf("account" to "Tautkan ke akun RDN…", "inbox" to "Biarkan di Inbox")
             else listOf("pocket_new" to "Buat kantong baru", "account" to "Tautkan ke akun…", "inbox" to "Biarkan di Inbox")
             PickDialog(name, opts, onDismiss = { cpPick = null }) { act ->
                 cpPick = null
-                if (act == "account" || act == "asset") cpTarget = name to act else cps[name] = act to ""
+                if (act == "account") cpTarget = name to act else cps[name] = act to ""
             }
         }
         cpTarget?.let { (name, act) ->
-            val options = if (act == "account") accounts.filter { it.text("id") != accountId }.map { (it.text("id") ?: "") to (it.text("name") ?: "") }
-            else p.list("assets").map { (it.text("id") ?: "") to (it.text("name") ?: "") }
-            PickDialog(if (act == "account") "Akun untuk $name" else "Aset untuk $name", options, onDismiss = { cpTarget = null }) { id -> cps[name] = act to id; cpTarget = null }
+            val options = accounts.filter { it.text("id") != accountId }.map { (it.text("id") ?: "") to (it.text("name") ?: "") }
+            PickDialog("Akun untuk $name", options, onDismiss = { cpTarget = null }) { id -> cps[name] = act to id; cpTarget = null }
         }
         picking?.let { r ->
             val opts = buildList {
