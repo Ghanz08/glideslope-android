@@ -61,4 +61,11 @@ class CaptureTest {
         assertEquals(Outcome.RETRY, outcome(503))
         assertEquals(Outcome.RETRY, outcome(null))
     }
+
+    @Test fun `installed e-wallets that are not allowed are suggested`() {
+        val installed = setOf("id.dana", "ovo.id", "com.bca", "com.shopee.id")
+        val got = suggestedWallets(allowed = setOf("ovo.id")) { it in installed }.map { it.first }
+        assertEquals(listOf("id.dana", "com.shopee.id"), got) // OVO is already allowed; BCA is a bank, not a wallet
+        assertEquals(emptyList<Pair<String, String>>(), suggestedWallets(emptySet()) { false })
+    }
 }

@@ -83,3 +83,10 @@ val FINANCE_APPS = listOf(
     "id.flip" to "Flip",
     "com.btpn.dc" to "Jenius",
 )
+
+/** E-wallets worth suggesting on the Status screen when they are installed but their notifications are not forwarded yet (F-22.7). */
+private val WALLET_PACKAGES = setOf("com.gojek.gopay", "com.gojek.app", "ovo.id", "id.dana", "com.shopee.id", "com.shopeepay.id")
+
+/** Installed e-wallet apps the owner has not allowed, in list order; [isInstalled] answers for one package name. */
+fun suggestedWallets(allowed: Set<String>, isInstalled: (String) -> Boolean): List<Pair<String, String>> =
+    FINANCE_APPS.filter { (pkg, _) -> pkg in WALLET_PACKAGES && pkg !in allowed && isInstalled(pkg) }

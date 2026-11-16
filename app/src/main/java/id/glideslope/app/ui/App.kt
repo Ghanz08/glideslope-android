@@ -70,6 +70,7 @@ import id.glideslope.app.SendWorker
 import id.glideslope.app.Settings
 import id.glideslope.app.TERKIRIM
 import id.glideslope.core.FINANCE_APPS
+import id.glideslope.core.suggestedWallets
 import id.glideslope.core.Payload
 import java.time.Instant
 import java.time.ZoneId
@@ -185,6 +186,19 @@ private fun StatusScreen(pad: PaddingValues, tick: Int, onOpenSettings: () -> Un
             Step(s.ready, "Server dan rahasia", "Isi alamat Glideslope dan rahasia webhook.", "Buka Setelan", onOpenSettings)
             HorizontalDivider()
             Step(s.allowed.isNotEmpty(), "Aplikasi keuangan", "Pilih aplikasi yang notifikasinya diteruskan.", "Pilih aplikasi", onOpenSettings)
+        }
+        // F-22.7: an e-wallet that is installed but not forwarded yet is offered with one tap
+        val wallets = remember(tick) { suggestedWallets(s.allowed) { pkg -> runCatching { @Suppress("DEPRECATION") ctx.packageManager.getPackageInfo(pkg, 0) }.isSuccess } }
+        if (wallets.isNotEmpty()) {
+            Section("Disarankan") {
+                Text("E-wallet ini terpasang di HP, tetapi notifikasinya belum diteruskan.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                wallets.forEach { (pkg, name) ->
+                    OutlinedButton(
+                        onClick = { s.allowed = s.allowed + pkg; refresh() },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    ) { Text("Izinkan $name") }
+                }
+            }
         }
         Button(
             onClick = {
